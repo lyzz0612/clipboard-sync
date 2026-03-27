@@ -5,6 +5,8 @@ compatibility_date = "2024-09-23"
 [assets]
 directory = "public"
 
+# KV namespace ID 通过环境变量注入，本地开发用 .dev.vars 或 wrangler dev 自动模拟
+# CI 部署时由 workflow 自动替换
 [[kv_namespaces]]
 binding = "KV"
-id = "PLACEHOLDER_KV_ID"
+id = "${KV_NAMESPACE_ID}"
