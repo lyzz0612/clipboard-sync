@@ -25,11 +25,11 @@
 
 ### GitHub Actions
 
-- 当 `worker/**` 有变更并推送到 `main` 时，自动部署 Worker。  
+- 当 `worker/**` 有变更并推送到 `master` 时，自动部署 Worker。  
 - 支持 `workflow_dispatch` 手动触发。
 
 ## Android 构建
 
-- 当 `android/**` 有变更并推送时，GitHub Actions 构建 debug APK。  
+- 当 `android/**` 有变更并推送到 `master` 时，GitHub Actions 构建 debug APK。
 - 构建产物上传到 GitHub Actions Artifacts，供下载。  
 - **签名正式版 release**：计划在后续版本中提供。
