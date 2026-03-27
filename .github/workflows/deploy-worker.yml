@@ -2,7 +2,7 @@ name: Deploy Worker
 
 on:
   push:
-    branches: [main]
+    branches: [master, cloud-paste]
     paths: ['worker/**']
   workflow_dispatch:
 
