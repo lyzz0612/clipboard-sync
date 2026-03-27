@@ -1,6 +1,7 @@
 package com.clipboardsync.app.ui.main
 
 import android.app.Application
+import androidx.compose.foundation.clickable
 import androidx.compose.foundation.layout.Column
 import androidx.compose.foundation.layout.Row
 import androidx.compose.foundation.layout.Spacer
@@ -179,7 +180,11 @@ fun MainScreen(
                                 .padding(12.dp),
                             verticalAlignment = Alignment.CenterVertically
                         ) {
-                            Column(modifier = Modifier.weight(1f)) {
+                            Column(
+                                modifier = Modifier
+                                    .weight(1f)
+                                    .clickable { viewModel.copyTextToClipboard(clip.text) }
+                            ) {
                                 Text(
                                     text = clip.text,
                                     style = MaterialTheme.typography.bodyLarge,

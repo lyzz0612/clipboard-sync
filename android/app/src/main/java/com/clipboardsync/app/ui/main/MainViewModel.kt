@@ -104,6 +104,21 @@ class MainViewModel(
     /** 手动刷新：拉列表 + 把最新一条写入系统剪贴板（此前仅拉列表，真机上剪贴板不会变） */
     fun refresh() = loadClips(syncClipboard = true)
 
+    /** 点击单条记录：复制该条全文到系统剪贴板 */
+    fun copyTextToClipboard(text: String) {
+        if (text.isBlank()) return
+        viewModelScope.launch(Dispatchers.Main) {
+            val cm = getApplication<Application>().getSystemService(Context.CLIPBOARD_SERVICE) as ClipboardManager
+            runCatching {
+                cm.setPrimaryClip(ClipData.newPlainText("clipboard_sync", text))
+            }.onSuccess {
+                _infoMessage.value = "已复制到剪贴板"
+            }.onFailure {
+                _infoMessage.value = "复制失败：${it.message ?: "系统限制"}"
+            }
+        }
+    }
+
     fun clearError() {
         _error.value = null
     }
