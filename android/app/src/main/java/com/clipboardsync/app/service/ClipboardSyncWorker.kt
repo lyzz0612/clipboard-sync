@@ -7,6 +7,8 @@ import androidx.work.CoroutineWorker
 import androidx.work.WorkerParameters
 import com.clipboardsync.app.data.local.PrefsManager
 import com.clipboardsync.app.data.repository.ClipboardRepository
+import kotlinx.coroutines.Dispatchers
+import kotlinx.coroutines.withContext
 
 class ClipboardSyncWorker(
     appContext: Context,
@@ -23,9 +25,16 @@ class ClipboardSyncWorker(
         return repo.getDelta(since).fold(
             onSuccess = { clips ->
                 if (clips.isNotEmpty()) {
-                    val latest = clips.maxByOrNull { it.createdAt } ?: return Result.success()
-                    val clipboard = applicationContext.getSystemService(Context.CLIPBOARD_SERVICE) as ClipboardManager
-                    clipboard.setPrimaryClip(ClipData.newPlainText("clipboard_sync", latest.text))
+                    val latest = clips.maxByOrNull { it.createdAt }
+                    if (latest != null) {
+                        // 部分真机（尤其 MIUI）要求在主线程写入剪贴板
+                        withContext(Dispatchers.Main) {
+                            val clipboard = applicationContext.getSystemService(Context.CLIPBOARD_SERVICE) as ClipboardManager
+                            runCatching {
+                                clipboard.setPrimaryClip(ClipData.newPlainText("clipboard_sync", latest.text))
+                            }
+                        }
+                    }
                 }
                 Result.success()
             },

@@ -1,5 +1,6 @@
 package com.clipboardsync.app.ui.main
 
+import android.app.Application
 import androidx.compose.foundation.layout.Column
 import androidx.compose.foundation.layout.Row
 import androidx.compose.foundation.layout.Spacer
@@ -22,6 +23,7 @@ import androidx.compose.material3.ExperimentalMaterial3Api
 import androidx.compose.material3.FloatingActionButton
 import androidx.compose.material3.Icon
 import androidx.compose.material3.IconButton
+import androidx.compose.material3.LinearProgressIndicator
 import androidx.compose.material3.MaterialTheme
 import androidx.compose.material3.OutlinedTextField
 import androidx.compose.material3.Scaffold
@@ -54,15 +56,17 @@ fun MainScreen(
     onNavigateToPermissions: () -> Unit = {}
 ) {
     val context = LocalContext.current
+    val app = context.applicationContext as Application
     val prefs = remember { PrefsManager.getInstance(context) }
     val repository = remember { ClipboardRepository(prefs) }
     val viewModel: MainViewModel = viewModel(
-        factory = MainViewModel.Factory(prefs, repository)
+        factory = MainViewModel.Factory(app, prefs, repository)
     )
 
     val clips by viewModel.clips.collectAsState()
     val isLoading by viewModel.isLoading.collectAsState()
     val error by viewModel.error.collectAsState()
+    val infoMessage by viewModel.infoMessage.collectAsState()
     val snackbarHostState = remember { SnackbarHostState() }
     var newClipText by rememberSaveable { mutableStateOf("") }
 
@@ -70,6 +74,13 @@ fun MainScreen(
         error?.let {
             snackbarHostState.showSnackbar(it)
             viewModel.clearError()
+        }
+    }
+
+    LaunchedEffect(infoMessage) {
+        infoMessage?.let {
+            snackbarHostState.showSnackbar(it)
+            viewModel.clearInfoMessage()
         }
     }
 
@@ -101,8 +112,11 @@ fun MainScreen(
             )
         },
         floatingActionButton = {
-            FloatingActionButton(onClick = viewModel::refresh) {
-                Icon(Icons.Default.Refresh, contentDescription = "刷新")
+            FloatingActionButton(
+                onClick = viewModel::refresh,
+                enabled = !isLoading
+            ) {
+                Icon(Icons.Default.Refresh, contentDescription = "刷新并同步到剪贴板")
             }
         },
         snackbarHost = { SnackbarHost(snackbarHostState) }
@@ -113,6 +127,10 @@ fun MainScreen(
                 .padding(padding)
                 .padding(horizontal = 16.dp)
         ) {
+            if (isLoading) {
+                LinearProgressIndicator(modifier = Modifier.fillMaxWidth())
+            }
+
             Spacer(modifier = Modifier.height(12.dp))
 
             Row(
