@@ -3,149 +3,424 @@
 <head>
 <meta charset="UTF-8">
 <meta name="viewport" content="width=device-width, initial-scale=1.0">
-<title>Clipboard Sync — Dashboard</title>
+<title>Clipboard Sync</title>
+<link rel="preconnect" href="https://fonts.googleapis.com">
+<link rel="preconnect" href="https://fonts.gstatic.com" crossorigin>
+<link href="https://fonts.googleapis.com/css2?family=Inter:wght@400;500;600;700&display=swap" rel="stylesheet">
 <style>
 *, *::before, *::after { box-sizing: border-box; margin: 0; padding: 0; }
-body {
-  font-family: -apple-system, BlinkMacSystemFont, 'Segoe UI', Roboto, Helvetica, Arial, sans-serif;
-  background: #f0f2f5;
-  min-height: 100vh;
-  padding: 1rem;
+
+:root {
+  --bg-gradient-start: #1a1a1a;
+  --bg-gradient-mid: #2a2520;
+  --bg-gradient-end: #1c1917;
+  --surface: rgba(255, 255, 255, 0.05);
+  --surface-hover: rgba(255, 255, 255, 0.08);
+  --border: rgba(255, 255, 255, 0.09);
+  --border-light: rgba(255, 255, 255, 0.05);
+  --text-primary: #ede9e3;
+  --text-secondary: rgba(237, 233, 227, 0.55);
+  --text-tertiary: rgba(237, 233, 227, 0.3);
+  --accent: #e8a849;
+  --accent-hover: #d4952f;
+  --accent-glow: rgba(232, 168, 73, 0.25);
+  --danger-bg: rgba(220, 80, 70, 0.12);
+  --danger-text: #f0a8a3;
+  --danger-hover: rgba(220, 80, 70, 0.22);
+  --success-bg: rgba(52, 211, 153, 0.15);
+  --success-text: #6ee7b7;
+  --toast-bg: rgba(220, 80, 70, 0.9);
 }
-.container { max-width: 640px; margin: 0 auto; }
+
+body {
+  font-family: 'Inter', -apple-system, BlinkMacSystemFont, 'Segoe UI', sans-serif;
+  background: linear-gradient(135deg, var(--bg-gradient-start), var(--bg-gradient-mid), var(--bg-gradient-end));
+  background-attachment: fixed;
+  min-height: 100vh;
+  padding: 1.5rem 1rem;
+  color: var(--text-primary);
+  position: relative;
+}
+
+body::before {
+  content: '';
+  position: fixed;
+  width: 450px;
+  height: 450px;
+  border-radius: 50%;
+  background: radial-gradient(circle, var(--accent-glow) 0%, transparent 70%);
+  top: -100px;
+  right: -80px;
+  pointer-events: none;
+  animation: float 8s ease-in-out infinite;
+}
+
+@keyframes float {
+  0%, 100% { transform: translateY(0); }
+  50% { transform: translateY(-25px); }
+}
+
+@keyframes fadeInUp {
+  from { opacity: 0; transform: translateY(16px); }
+  to   { opacity: 1; transform: translateY(0); }
+}
+
+@keyframes slideDown {
+  from { opacity: 0; transform: translate(-50%, -100%); }
+  to   { opacity: 1; transform: translate(-50%, 0); }
+}
+
+@keyframes clipIn {
+  from { opacity: 0; transform: translateY(12px) scale(.98); }
+  to   { opacity: 1; transform: translateY(0) scale(1); }
+}
+
+.container {
+  max-width: 680px;
+  margin: 0 auto;
+  position: relative;
+  z-index: 1;
+}
+
+/* ── Header ── */
 .header {
   display: flex;
   align-items: center;
   justify-content: space-between;
-  margin-bottom: 1.5rem;
+  margin-bottom: 2rem;
+  animation: fadeInUp .5s ease-out;
 }
-.header h1 { font-size: 1.3rem; color: #1a1a2e; }
+
+.header-brand {
+  display: flex;
+  align-items: center;
+  gap: .6rem;
+}
+
+.logo-icon {
+  width: 34px;
+  height: 34px;
+  background: var(--accent);
+  border-radius: 9px;
+  display: flex;
+  align-items: center;
+  justify-content: center;
+  box-shadow: 0 4px 14px var(--accent-glow);
+  flex-shrink: 0;
+}
+
+.logo-icon svg { width: 18px; height: 18px; fill: #fff; }
+
+.header h1 {
+  font-size: 1.25rem;
+  font-weight: 700;
+  letter-spacing: -0.02em;
+}
+
 .btn {
   padding: .5rem 1rem;
   border: none;
-  border-radius: 8px;
-  font-size: .85rem;
+  border-radius: 9px;
+  font-size: .82rem;
   font-weight: 600;
+  font-family: inherit;
   cursor: pointer;
-  transition: background .2s;
+  transition: background .2s, box-shadow .2s, transform .15s;
+  color: var(--text-primary);
 }
-.btn-logout { background: #e9ecef; color: #333; }
-.btn-logout:hover { background: #dee2e6; }
-.btn-primary { background: #4361ee; color: #fff; }
-.btn-primary:hover { background: #3a56d4; }
-.btn-sm { padding: .35rem .7rem; font-size: .8rem; }
-.btn-danger { background: #fee2e2; color: #b91c1c; }
-.btn-danger:hover { background: #fecaca; }
+
+.btn:active { transform: scale(.96); }
+
+.btn-logout {
+  background: var(--surface);
+  border: 1px solid var(--border);
+}
+.btn-logout:hover { background: var(--surface-hover); }
+
+.btn-primary {
+  background: var(--accent);
+  color: #fff;
+  box-shadow: 0 3px 12px var(--accent-glow);
+}
+.btn-primary:hover {
+  background: var(--accent-hover);
+  box-shadow: 0 5px 20px var(--accent-glow);
+}
+.btn-primary:disabled {
+  opacity: .5;
+  cursor: not-allowed;
+  box-shadow: none;
+}
+
+.btn-sm { padding: .35rem .75rem; font-size: .78rem; }
+
+.btn-icon {
+  display: inline-flex;
+  align-items: center;
+  justify-content: center;
+  width: 32px;
+  height: 32px;
+  padding: 0;
+  border-radius: 8px;
+  background: var(--surface);
+  border: 1px solid var(--border-light);
+}
+.btn-icon:hover { background: var(--surface-hover); }
+.btn-icon svg { width: 15px; height: 15px; fill: var(--text-secondary); }
+
+.btn-icon-danger:hover {
+  background: var(--danger-bg);
+  border-color: rgba(239, 68, 68, 0.2);
+}
+.btn-icon-danger:hover svg { fill: var(--danger-text); }
+
+/* ── Compose ── */
 .compose {
-  background: #fff;
-  border-radius: 12px;
-  box-shadow: 0 2px 16px rgba(0,0,0,.08);
+  background: var(--surface);
+  backdrop-filter: blur(20px);
+  -webkit-backdrop-filter: blur(20px);
+  border: 1px solid var(--border);
+  border-radius: 16px;
   padding: 1.25rem;
-  margin-bottom: 1.5rem;
+  margin-bottom: 2rem;
+  animation: fadeInUp .55s ease-out;
 }
+
 textarea {
   width: 100%;
   min-height: 100px;
-  padding: .65rem .75rem;
-  border: 1px solid #ddd;
-  border-radius: 8px;
-  font-size: .95rem;
+  padding: .75rem 1rem;
+  background: rgba(255, 255, 255, 0.04);
+  border: 1px solid var(--border-light);
+  border-radius: 10px;
+  font-size: .92rem;
   font-family: inherit;
+  color: var(--text-primary);
   resize: vertical;
   margin-bottom: .75rem;
+  transition: border-color .25s, box-shadow .25s;
 }
-textarea:focus { outline: none; border-color: #4361ee; }
+
+textarea::placeholder { color: var(--text-tertiary); }
+textarea:focus {
+  outline: none;
+  border-color: var(--accent);
+  box-shadow: 0 0 0 3px var(--accent-glow);
+}
+
 .compose-actions { display: flex; justify-content: flex-end; }
+
+/* ── Clips Section ── */
+.clips-section { animation: fadeInUp .6s ease-out; }
+
 .clips-header {
   display: flex;
   align-items: center;
   justify-content: space-between;
-  margin-bottom: .75rem;
+  margin-bottom: 1rem;
 }
-.clips-header h2 { font-size: 1.1rem; color: #333; }
+
+.clips-header h2 {
+  font-size: 1rem;
+  font-weight: 600;
+  color: var(--text-secondary);
+  text-transform: uppercase;
+  letter-spacing: .06em;
+}
+
 .clip-list { list-style: none; }
+
 .clip-item {
-  background: #fff;
-  border-radius: 10px;
-  box-shadow: 0 1px 6px rgba(0,0,0,.06);
-  padding: 1rem 1.25rem;
+  background: var(--surface);
+  backdrop-filter: blur(16px);
+  -webkit-backdrop-filter: blur(16px);
+  border: 1px solid var(--border-light);
+  border-radius: 14px;
+  padding: 1rem 1.15rem;
   margin-bottom: .6rem;
   display: flex;
   align-items: flex-start;
   gap: .75rem;
+  transition: background .2s, border-color .2s;
+  animation: clipIn .35s ease-out both;
 }
+
+.clip-item:hover {
+  background: var(--surface-hover);
+  border-color: var(--border);
+}
+
 .clip-body { flex: 1; min-width: 0; }
+
 .clip-text {
-  font-size: .92rem;
-  color: #222;
+  font-size: .9rem;
+  color: var(--text-primary);
   white-space: pre-wrap;
   word-break: break-word;
-  max-height: 6em;
+  max-height: 6.5em;
   overflow: hidden;
+  line-height: 1.55;
 }
+
 .clip-time {
-  font-size: .75rem;
-  color: #888;
-  margin-top: .3rem;
+  font-size: .72rem;
+  color: var(--text-tertiary);
+  margin-top: .4rem;
+  font-weight: 500;
 }
-.clip-actions { flex-shrink: 0; }
+
+.clip-actions {
+  flex-shrink: 0;
+  display: flex;
+  gap: .35rem;
+}
+
 .empty {
   text-align: center;
-  color: #999;
-  padding: 2rem;
-  font-size: .95rem;
+  color: var(--text-tertiary);
+  padding: 3rem 1rem;
+  font-size: .92rem;
 }
-.error-toast {
+
+.empty-icon {
+  display: block;
+  margin: 0 auto .75rem;
+  width: 48px;
+  height: 48px;
+  opacity: .3;
+}
+
+/* ── Toast ── */
+.toast {
   position: fixed;
-  top: 1rem;
+  top: 1.25rem;
   left: 50%;
   transform: translateX(-50%);
-  background: #b91c1c;
-  color: #fff;
-  padding: .6rem 1.2rem;
-  border-radius: 8px;
-  font-size: .85rem;
+  padding: .65rem 1.25rem;
+  border-radius: 10px;
+  font-size: .84rem;
+  font-weight: 500;
+  font-family: inherit;
+  z-index: 200;
+  pointer-events: none;
   display: none;
-  z-index: 100;
+  animation: slideDown .3s ease-out;
+}
+
+.toast-error { background: var(--toast-bg); color: #fff; backdrop-filter: blur(12px); }
+.toast-success { background: var(--success-bg); color: var(--success-text); backdrop-filter: blur(12px); border: 1px solid rgba(52, 211, 153, 0.2); }
+
+/* ── Responsive ── */
+@media (max-width: 480px) {
+  body { padding: 1rem .75rem; }
+  .compose { padding: 1rem; }
+  .clip-item { padding: .85rem 1rem; }
 }
 </style>
 </head>
 <body>
-<div class="error-toast" id="toast"></div>
+<div class="toast toast-error" id="toast"></div>
+<div class="toast toast-success" id="toastSuccess"></div>
 <div class="container">
   <div class="header">
-    <h1>Clipboard Sync</h1>
-    <button class="btn btn-logout" id="logoutBtn">Logout</button>
+    <div class="header-brand">
+      <div class="logo-icon">
+        <svg viewBox="0 0 24 24" xmlns="http://www.w3.org/2000/svg"><path d="M16 1H4a2 2 0 0 0-2 2v14h2V3h12V1zm3 4H8a2 2 0 0 0-2 2v14a2 2 0 0 0 2 2h11a2 2 0 0 0 2-2V7a2 2 0 0 0-2-2zm0 16H8V7h11v14z"/></svg>
+      </div>
+      <h1 data-i18n="title"></h1>
+    </div>
+    <button class="btn btn-logout" id="logoutBtn" data-i18n="logout"></button>
   </div>
   <div class="compose">
-    <textarea id="clipText" placeholder="Paste or type something..."></textarea>
+    <textarea id="clipText"></textarea>
     <div class="compose-actions">
-      <button class="btn btn-primary" id="submitBtn">Submit</button>
+      <button class="btn btn-primary" id="submitBtn" data-i18n="submit"></button>
     </div>
   </div>
-  <div class="clips-header">
-    <h2>Your Clips</h2>
-    <button class="btn btn-sm btn-primary" id="refreshBtn">Refresh</button>
+  <div class="clips-section">
+    <div class="clips-header">
+      <h2 data-i18n="yourClips"></h2>
+      <button class="btn btn-sm btn-logout" id="refreshBtn" data-i18n="refresh"></button>
+    </div>
+    <ul class="clip-list" id="clipList"></ul>
   </div>
-  <ul class="clip-list" id="clipList"></ul>
 </div>
 <script>
 (function() {
+  var i18n = {
+    zh: {
+      title: '剪贴板同步',
+      logout: '退出',
+      placeholder: '粘贴或输入要同步的内容…',
+      submit: '提交',
+      yourClips: '我的剪贴',
+      refresh: '刷新',
+      emptyText: '暂无剪贴内容，在上方添加一条吧！',
+      copied: '已复制！',
+      copyTitle: '复制',
+      deleteTitle: '删除',
+      sessionExpired: '会话已过期',
+      requestFailed: '请求失败',
+      justNow: '刚刚',
+      mAgo: '分钟前',
+      hAgo: '小时前',
+      pageTitle: '剪贴板同步'
+    },
+    en: {
+      title: 'Clipboard Sync',
+      logout: 'Logout',
+      placeholder: 'Paste or type something to sync…',
+      submit: 'Submit',
+      yourClips: 'Your Clips',
+      refresh: 'Refresh',
+      emptyText: 'No clips yet. Add one above!',
+      copied: 'Copied!',
+      copyTitle: 'Copy',
+      deleteTitle: 'Delete',
+      sessionExpired: 'Session expired',
+      requestFailed: 'Request failed',
+      justNow: 'Just now',
+      mAgo: 'm ago',
+      hAgo: 'h ago',
+      pageTitle: 'Clipboard Sync'
+    }
+  };
+
+  var lang = /^zh/i.test(navigator.language) ? 'zh' : 'en';
+  var t = i18n[lang];
+
+  document.title = t.pageTitle;
+  document.documentElement.lang = lang === 'zh' ? 'zh-CN' : 'en';
+  document.querySelectorAll('[data-i18n]').forEach(function(el) {
+    el.textContent = t[el.getAttribute('data-i18n')];
+  });
+
   var token = sessionStorage.getItem('token');
   if (!token) { window.location.href = 'index.html'; return; }
 
   var toast = document.getElementById('toast');
+  var toastSuccess = document.getElementById('toastSuccess');
   var clipText = document.getElementById('clipText');
   var submitBtn = document.getElementById('submitBtn');
   var refreshBtn = document.getElementById('refreshBtn');
   var logoutBtn = document.getElementById('logoutBtn');
   var clipList = document.getElementById('clipList');
-  var refreshTimer = null;
+  var toastTimer = null;
+
+  clipText.placeholder = t.placeholder;
 
   function showToast(msg) {
+    clearTimeout(toastTimer);
     toast.textContent = msg;
     toast.style.display = 'block';
-    setTimeout(function() { toast.style.display = 'none'; }, 3000);
+    toastTimer = setTimeout(function() { toast.style.display = 'none'; }, 3000);
+  }
+
+  function showSuccess(msg) {
+    clearTimeout(toastTimer);
+    toastSuccess.textContent = msg;
+    toastSuccess.style.display = 'block';
+    toastTimer = setTimeout(function() { toastSuccess.style.display = 'none'; }, 2000);
   }
 
   function api(method, path, body) {
@@ -158,10 +433,10 @@ textarea:focus { outline: none; border-color: #4361ee; }
       if (r.status === 401) {
         sessionStorage.removeItem('token');
         window.location.href = 'index.html';
-        throw new Error('Session expired');
+        throw new Error(t.sessionExpired);
       }
       return r.json().then(function(d) {
-        if (!r.ok) throw new Error(d.error || 'Request failed');
+        if (!r.ok) throw new Error(d.error || t.requestFailed);
         return d;
       });
     });
@@ -169,31 +444,65 @@ textarea:focus { outline: none; border-color: #4361ee; }
 
   function formatTime(iso) {
     var d = new Date(iso);
-    return d.toLocaleString();
+    var now = new Date();
+    var diff = now - d;
+    if (diff < 60000) return t.justNow;
+    if (diff < 3600000) return Math.floor(diff / 60000) + (lang === 'zh' ? ' ' : '') + t.mAgo;
+    if (diff < 86400000) return Math.floor(diff / 3600000) + (lang === 'zh' ? ' ' : '') + t.hAgo;
+    return d.toLocaleDateString(undefined, { month: 'short', day: 'numeric', hour: '2-digit', minute: '2-digit' });
   }
 
   function truncate(text, len) {
     return text.length > len ? text.substring(0, len) + '…' : text;
   }
 
+  function copyToClipboard(text) {
+    if (navigator.clipboard) {
+      navigator.clipboard.writeText(text).then(function() {
+        showSuccess(t.copied);
+      });
+    } else {
+      var ta = document.createElement('textarea');
+      ta.value = text;
+      ta.style.position = 'fixed';
+      ta.style.left = '-9999px';
+      document.body.appendChild(ta);
+      ta.select();
+      document.execCommand('copy');
+      document.body.removeChild(ta);
+      showSuccess(t.copied);
+    }
+  }
+
   function renderClips(clips) {
     if (!clips.length) {
-      clipList.innerHTML = '<li class="empty">No clips yet. Add one above!</li>';
+      clipList.innerHTML =
+        '<li class="empty">' +
+          '<svg class="empty-icon" viewBox="0 0 24 24" fill="currentColor" xmlns="http://www.w3.org/2000/svg"><path d="M16 1H4a2 2 0 0 0-2 2v14h2V3h12V1zm3 4H8a2 2 0 0 0-2 2v14a2 2 0 0 0 2 2h11a2 2 0 0 0 2-2V7a2 2 0 0 0-2-2zm0 16H8V7h11v14z"/></svg>' +
+          t.emptyText +
+        '</li>';
       return;
     }
     clipList.innerHTML = '';
-    clips.forEach(function(clip) {
+    clips.forEach(function(clip, i) {
       var li = document.createElement('li');
       li.className = 'clip-item';
+      li.style.animationDelay = (i * 0.05) + 's';
       li.innerHTML =
         '<div class="clip-body">' +
           '<div class="clip-text"></div>' +
           '<div class="clip-time">' + formatTime(clip.createdAt) + '</div>' +
         '</div>' +
         '<div class="clip-actions">' +
-          '<button class="btn btn-sm btn-danger" data-id="' + clip.id + '">Delete</button>' +
+          '<button class="btn btn-icon" data-copy title="' + t.copyTitle + '">' +
+            '<svg viewBox="0 0 24 24" xmlns="http://www.w3.org/2000/svg"><path d="M16 1H4a2 2 0 0 0-2 2v14h2V3h12V1zm3 4H8a2 2 0 0 0-2 2v14a2 2 0 0 0 2 2h11a2 2 0 0 0 2-2V7a2 2 0 0 0-2-2zm0 16H8V7h11v14z"/></svg>' +
+          '</button>' +
+          '<button class="btn btn-icon btn-icon-danger" data-id="' + clip.id + '" title="' + t.deleteTitle + '">' +
+            '<svg viewBox="0 0 24 24" xmlns="http://www.w3.org/2000/svg"><path d="M6 19a2 2 0 0 0 2 2h8a2 2 0 0 0 2-2V7H6v12zM8 9h8v10H8V9zm7.5-5l-1-1h-5l-1 1H5v2h14V4h-3.5z"/></svg>' +
+          '</button>' +
         '</div>';
       li.querySelector('.clip-text').textContent = truncate(clip.text, 500);
+      li._fullText = clip.text;
       clipList.appendChild(li);
     });
   }
@@ -215,10 +524,16 @@ textarea:focus { outline: none; border-color: #4361ee; }
   });
 
   clipList.addEventListener('click', function(e) {
-    var btn = e.target.closest('[data-id]');
-    if (!btn) return;
-    var id = btn.getAttribute('data-id');
-    btn.disabled = true;
+    var copyBtn = e.target.closest('[data-copy]');
+    if (copyBtn) {
+      var item = copyBtn.closest('.clip-item');
+      if (item && item._fullText) copyToClipboard(item._fullText);
+      return;
+    }
+    var delBtn = e.target.closest('[data-id]');
+    if (!delBtn) return;
+    var id = delBtn.getAttribute('data-id');
+    delBtn.disabled = true;
     api('DELETE', '/api/clips/' + id).then(function() { loadClips(); })
       .catch(function(e) { showToast(e.message); });
   });
@@ -231,7 +546,7 @@ textarea:focus { outline: none; border-color: #4361ee; }
   });
 
   loadClips();
-  refreshTimer = setInterval(loadClips, 30000);
+  setInterval(loadClips, 30000);
 })();
 </script>
 </body>
