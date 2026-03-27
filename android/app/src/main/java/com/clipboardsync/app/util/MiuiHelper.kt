@@ -66,10 +66,10 @@ object MiuiHelper {
     fun isMiui(): Boolean {
         return try {
             val clazz = Class.forName("android.os.SystemProperties")
-            val method = clazz.getMethod("get", String::class.java)
-            val miuiVersion = method.invoke(null, "ro.miui.ui.version.name") as? String
-            !miuiVersion.isNullOrEmpty()
-        } catch (_: Exception) {
+            val get = clazz.getMethod("get", String::class.java)
+            val version = get.invoke(null, "ro.miui.ui.version.name") as? String
+            version != null && version.isNotBlank()
+        } catch (_: Throwable) {
             false
         }
     }
