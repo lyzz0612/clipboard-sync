@@ -43,6 +43,7 @@ import androidx.compose.runtime.saveable.rememberSaveable
 import androidx.compose.runtime.setValue
 import androidx.compose.ui.Alignment
 import androidx.compose.ui.Modifier
+import androidx.compose.ui.draw.alpha
 import androidx.compose.ui.platform.LocalContext
 import androidx.compose.ui.text.style.TextOverflow
 import androidx.compose.ui.unit.dp
@@ -114,8 +115,8 @@ fun MainScreen(
         },
         floatingActionButton = {
             FloatingActionButton(
-                onClick = viewModel::refresh,
-                enabled = !isLoading
+                onClick = { if (!isLoading) viewModel.refresh() },
+                modifier = Modifier.alpha(if (isLoading) 0.38f else 1f)
             ) {
                 Icon(Icons.Default.Refresh, contentDescription = "刷新并同步到剪贴板")
             }
