@@ -40,8 +40,11 @@ class ClipboardRepository(private val prefs: PrefsManager) {
             }
 
             val loggingInterceptor = HttpLoggingInterceptor().apply {
-                // BASIC：避免 BODY 把 Authorization / 剪贴板正文打到 logcat
-                level = HttpLoggingInterceptor.Level.BASIC
+                level = if (FileLogger.isEnabled()) {
+                    HttpLoggingInterceptor.Level.BASIC
+                } else {
+                    HttpLoggingInterceptor.Level.NONE
+                }
             }
 
             val client = OkHttpClient.Builder()

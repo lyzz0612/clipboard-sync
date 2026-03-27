@@ -7,7 +7,6 @@ import android.content.ClipboardManager
 import android.content.Context
 import android.os.Handler
 import android.os.Looper
-import android.util.Log
 import android.view.accessibility.AccessibilityEvent
 import com.clipboardsync.app.data.local.PrefsManager
 import com.clipboardsync.app.data.repository.ClipboardRepository
@@ -37,7 +36,6 @@ class ClipboardAccessibilityService : AccessibilityService() {
             flags = AccessibilityServiceInfo.FLAG_INCLUDE_NOT_IMPORTANT_VIEWS
             notificationTimeout = 500
         }
-        Log.i(TAG, "Accessibility service connected")
         FileLogger.i(
             TAG,
             "onServiceConnected eventTypes=TYPE_WINDOW_STATE_CHANGED " +
@@ -137,7 +135,6 @@ class ClipboardAccessibilityService : AccessibilityService() {
                     FileLogger.e(TAG, "triggerSync: getDelta failed", e)
                 }
             } catch (e: Exception) {
-                Log.e(TAG, "Sync failed", e)
                 FileLogger.e(TAG, "triggerSync: exception", e)
             }
         }
@@ -145,7 +142,6 @@ class ClipboardAccessibilityService : AccessibilityService() {
 
     override fun onInterrupt() {
         pendingSync?.let { handler.removeCallbacks(it) }
-        Log.i(TAG, "Accessibility service interrupted")
         FileLogger.w(TAG, "onInterrupt")
     }
 

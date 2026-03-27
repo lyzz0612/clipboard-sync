@@ -22,6 +22,7 @@ import androidx.compose.runtime.Composable
 import androidx.compose.ui.Modifier
 import androidx.compose.ui.platform.LocalContext
 import androidx.compose.ui.unit.dp
+import com.clipboardsync.app.R
 import com.clipboardsync.app.util.MiuiHelper
 
 @OptIn(ExperimentalMaterial3Api::class)
@@ -30,6 +31,7 @@ fun PermissionsGuideScreen(
     onBack: () -> Unit
 ) {
     val context = LocalContext.current
+    val appName = context.getString(R.string.app_name)
     val isMiui = MiuiHelper.isMiui()
 
     Scaffold(
@@ -56,6 +58,35 @@ fun PermissionsGuideScreen(
                 style = MaterialTheme.typography.bodyLarge
             )
 
+            if (isMiui) {
+                Card(modifier = Modifier.fillMaxWidth()) {
+                    Column(modifier = Modifier.padding(16.dp)) {
+                        Text(
+                            text = "小米 / MIUI：上划最近任务会杀进程",
+                            style = MaterialTheme.typography.titleMedium
+                        )
+                        Spacer(modifier = Modifier.height(4.dp))
+                        Text(
+                            text = "在 MIUI 上，从多任务界面上划掉本应用，通常会直接结束进程（与「强行停止」类似），无障碍与后台同步会停，直到您再次打开本应用。这不是应用能绕过的系统策略。",
+                            style = MaterialTheme.typography.bodyMedium
+                        )
+                        Spacer(modifier = Modifier.height(8.dp))
+                        Text(
+                            text = "建议：\n" +
+                                "• 需要长期后台时：打开多任务界面，长按 $appName 卡片，点「锁定」（锁形图标），再清理其它任务。\n" +
+                                "• 日常可多用桌面键返回桌面，少用上划结束本应用。\n" +
+                                "• 下方「省电策略」设为「无限制」，并开启自启动。",
+                            style = MaterialTheme.typography.bodySmall,
+                            color = MaterialTheme.colorScheme.onSurfaceVariant
+                        )
+                        Spacer(modifier = Modifier.height(8.dp))
+                        Button(onClick = { MiuiHelper.openApplicationDetailsSettings(context) }) {
+                            Text("打开本应用信息（省电策略）")
+                        }
+                    }
+                }
+            }
+
             Card(modifier = Modifier.fillMaxWidth()) {
                 Column(modifier = Modifier.padding(16.dp)) {
                     Text(
@@ -69,7 +100,7 @@ fun PermissionsGuideScreen(
                     )
                     Spacer(modifier = Modifier.height(8.dp))
                     Text(
-                        text = "路径：设置 → 无障碍 → 已下载的应用 → Clipboard Sync → 开启",
+                        text = "路径：设置 → 无障碍 → 已下载的应用 → $appName → 开启",
                         style = MaterialTheme.typography.bodySmall,
                         color = MaterialTheme.colorScheme.onSurfaceVariant
                     )
@@ -94,7 +125,7 @@ fun PermissionsGuideScreen(
                         )
                         Spacer(modifier = Modifier.height(8.dp))
                         Text(
-                            text = "路径：设置 → 应用设置 → 应用管理 → Clipboard Sync → 自启动",
+                            text = "路径：设置 → 应用设置 → 应用管理 → $appName → 自启动",
                             style = MaterialTheme.typography.bodySmall,
                             color = MaterialTheme.colorScheme.onSurfaceVariant
                         )
@@ -114,7 +145,7 @@ fun PermissionsGuideScreen(
                     )
                     Spacer(modifier = Modifier.height(4.dp))
                     Text(
-                        text = "将 Clipboard Sync 排除在电池优化之外，防止后台同步被系统杀死。",
+                        text = "将 $appName 排除在电池优化之外，防止后台同步被系统杀死。",
                         style = MaterialTheme.typography.bodyMedium
                     )
                     Spacer(modifier = Modifier.height(8.dp))

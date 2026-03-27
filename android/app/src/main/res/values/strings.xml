@@ -1,5 +1,5 @@
 <?xml version="1.0" encoding="utf-8"?>
 <resources>
-    <string name="app_name">Clipboard Sync</string>
+    <string name="app_name">剪贴板同步</string>
     <string name="accessibility_service_description">监听输入法弹出事件，自动从服务器同步最新剪贴板内容。此服务不会读取您的屏幕内容。</string>
 </resources>

@@ -16,8 +16,15 @@ import java.util.Locale
  * `adb pull /sdcard/Android/data/com.clipboardsync.app/files/clipboard_sync_debug.log`
  *
  * 注意：可能包含剪贴板内容预览，请勿把文件提交到 git 或公开分享。
+ *
+ * 设为 `false` 时关闭所有日志输出（不写文件、不打 logcat），调用点保留便于以后排查。
  */
 object FileLogger {
+
+    private const val ENABLED = false
+
+    /** 与 [ENABLED] 一致；网络库等可据此关闭 logcat 输出。 */
+    fun isEnabled(): Boolean = ENABLED
 
     private const val FILE_NAME = "clipboard_sync_debug.log"
     private const val BACKUP_SUFFIX = ".bak"
@@ -36,6 +43,7 @@ object FileLogger {
     private var appContext: Context? = null
 
     fun init(context: Context) {
+        if (!ENABLED) return
         if (appContext != null) return
         synchronized(lock) {
             if (appContext != null) return
@@ -65,21 +73,25 @@ object FileLogger {
     }
 
     fun d(tag: String, message: String) {
+        if (!ENABLED) return
         Log.d(tag, message)
         writeRaw("D", tag, message)
     }
 
     fun i(tag: String, message: String) {
+        if (!ENABLED) return
         Log.i(tag, message)
         writeRaw("I", tag, message)
     }
 
     fun w(tag: String, message: String) {
+        if (!ENABLED) return
         Log.w(tag, message)
         writeRaw("W", tag, message)
     }
 
     fun e(tag: String, message: String, throwable: Throwable? = null) {
+        if (!ENABLED) return
         Log.e(tag, message, throwable)
         val body = if (throwable != null) {
             "$message\n${Log.getStackTraceString(throwable)}"

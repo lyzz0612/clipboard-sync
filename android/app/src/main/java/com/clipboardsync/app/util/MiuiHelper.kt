@@ -63,6 +63,15 @@ object MiuiHelper {
         context.startActivity(intent)
     }
 
+    /** 应用信息页（省电策略、通知等），各 ROM 通用 */
+    fun openApplicationDetailsSettings(context: Context) {
+        val intent = Intent(Settings.ACTION_APPLICATION_DETAILS_SETTINGS).apply {
+            data = Uri.parse("package:${context.packageName}")
+            addFlags(Intent.FLAG_ACTIVITY_NEW_TASK)
+        }
+        runCatching { context.startActivity(intent) }
+    }
+
     fun isMiui(): Boolean {
         return try {
             val clazz = Class.forName("android.os.SystemProperties")

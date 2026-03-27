@@ -45,9 +45,11 @@ import androidx.compose.ui.Alignment
 import androidx.compose.ui.Modifier
 import androidx.compose.ui.draw.alpha
 import androidx.compose.ui.platform.LocalContext
+import androidx.compose.ui.res.stringResource
 import androidx.compose.ui.text.style.TextOverflow
 import androidx.compose.ui.unit.dp
 import androidx.lifecycle.viewmodel.compose.viewModel
+import com.clipboardsync.app.R
 import com.clipboardsync.app.data.local.PrefsManager
 import com.clipboardsync.app.data.repository.ClipboardRepository
 
@@ -58,6 +60,7 @@ fun MainScreen(
     onNavigateToPermissions: () -> Unit = {}
 ) {
     val context = LocalContext.current
+    val appName = stringResource(R.string.app_name)
     val app = context.applicationContext as Application
     val prefs = remember { PrefsManager.getInstance(context) }
     val repository = remember { ClipboardRepository(prefs) }
@@ -89,7 +92,7 @@ fun MainScreen(
     Scaffold(
         topBar = {
             TopAppBar(
-                title = { Text("Clipboard Sync") },
+                title = { Text(appName) },
                 colors = TopAppBarDefaults.topAppBarColors(
                     containerColor = MaterialTheme.colorScheme.primaryContainer,
                     titleContentColor = MaterialTheme.colorScheme.onPrimaryContainer

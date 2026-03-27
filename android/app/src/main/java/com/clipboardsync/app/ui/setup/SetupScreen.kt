@@ -26,9 +26,11 @@ import androidx.compose.runtime.remember
 import androidx.compose.ui.Alignment
 import androidx.compose.ui.Modifier
 import androidx.compose.ui.platform.LocalContext
+import androidx.compose.ui.res.stringResource
 import androidx.compose.ui.text.input.PasswordVisualTransformation
 import androidx.compose.ui.unit.dp
 import androidx.lifecycle.viewmodel.compose.viewModel
+import com.clipboardsync.app.R
 import com.clipboardsync.app.data.local.PrefsManager
 import com.clipboardsync.app.data.repository.ClipboardRepository
 
@@ -37,6 +39,7 @@ fun SetupScreen(
     onLoginSuccess: () -> Unit
 ) {
     val context = LocalContext.current
+    val appName = stringResource(R.string.app_name)
     val prefs = remember { PrefsManager.getInstance(context) }
     val repository = remember { ClipboardRepository(prefs) }
     val viewModel: SetupViewModel = viewModel(
@@ -71,7 +74,7 @@ fun SetupScreen(
             horizontalAlignment = Alignment.CenterHorizontally
         ) {
             Text(
-                text = "Clipboard Sync",
+                text = appName,
                 style = MaterialTheme.typography.headlineLarge,
                 color = MaterialTheme.colorScheme.primary
             )
