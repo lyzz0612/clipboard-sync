@@ -44,7 +44,15 @@ APP_HOME=$( cd -P "${APP_HOME:-./}" > /dev/null && printf '%s\n' "$PWD" ) || exi
 APP_NAME="Gradle"
 APP_BASE_NAME=${0##*/}
 
-DEFAULT_JVM_OPTS='"-Xmx64m" "-Xms64m"'
+die ( ) {
+    echo
+    echo "$*"
+    echo
+    exit 1
+}
+
+# 使用无嵌套引号的写法，避免 POSIX sh 展开时把引号当作字面量传给 java（会触发 ClassNotFoundException: "-Xmx64m"）
+DEFAULT_JVM_OPTS="-Xmx64m -Xms64m"
 
 if [ -n "$JAVA_HOME" ] ; then
     JAVACMD="$JAVA_HOME/bin/java"
@@ -59,14 +67,6 @@ else
 fi
 
 CLASSPATH=$APP_HOME/gradle/wrapper/gradle-wrapper.jar
-
-# Determine the Java command to use to start the JVM.
-die ( ) {
-    echo
-    echo "$*"
-    echo
-    exit 1
-}
 
 exec "$JAVACMD" \
     $DEFAULT_JVM_OPTS \
