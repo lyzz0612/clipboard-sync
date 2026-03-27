@@ -11,6 +11,7 @@ import java.util.concurrent.TimeUnit
 
 object WorkManagerHelper {
     fun schedulePeriodicSync(context: Context) {
+        FileLogger.init(context)
         val constraints = Constraints.Builder()
             .setRequiredNetworkType(NetworkType.CONNECTED)
             .build()
@@ -24,9 +25,15 @@ object WorkManagerHelper {
             ExistingPeriodicWorkPolicy.KEEP,
             request
         )
+        FileLogger.i(
+            "WorkMgr",
+            "enqueueUniquePeriodic work=${ClipboardSyncWorker.WORK_NAME} interval=15m network=CONNECTED"
+        )
     }
 
     fun cancelPeriodicSync(context: Context) {
+        FileLogger.init(context)
         WorkManager.getInstance(context).cancelUniqueWork(ClipboardSyncWorker.WORK_NAME)
+        FileLogger.i("WorkMgr", "cancelUniqueWork ${ClipboardSyncWorker.WORK_NAME}")
     }
 }

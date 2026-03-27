@@ -11,6 +11,7 @@ import androidx.lifecycle.viewModelScope
 import com.clipboardsync.app.data.api.ClipItem
 import com.clipboardsync.app.data.local.PrefsManager
 import com.clipboardsync.app.data.repository.ClipboardRepository
+import com.clipboardsync.app.util.FileLogger
 import kotlinx.coroutines.Dispatchers
 import kotlinx.coroutines.flow.MutableStateFlow
 import kotlinx.coroutines.flow.StateFlow
@@ -38,7 +39,8 @@ class MainViewModel(
     val infoMessage: StateFlow<String?> = _infoMessage.asStateFlow()
 
     init {
-        loadClips(syncClipboard = false)
+        FileLogger.i("MainVM", "init loadClips syncClipboard=true (same as manual refresh)")
+        loadClips(syncClipboard = true)
     }
 
     /**
@@ -46,10 +48,12 @@ class MainViewModel(
      */
     fun loadClips(syncClipboard: Boolean = false) {
         viewModelScope.launch {
+            FileLogger.i("MainVM", "loadClips start syncClipboard=$syncClipboard")
             _isLoading.value = true
             _error.value = null
             repository.getClips()
                 .onSuccess { list ->
+                    FileLogger.i("MainVM", "loadClips ok count=${list.size} syncClipboard=$syncClipboard")
                     _clips.value = list
                     if (syncClipboard) {
                         withContext(Dispatchers.Main) {
@@ -57,23 +61,35 @@ class MainViewModel(
                         }
                     }
                 }
-                .onFailure { _error.value = it.message ?: "加载失败" }
+                .onFailure {
+                    FileLogger.e("MainVM", "loadClips fail: ${it.message}", it)
+                    _error.value = it.message ?: "加载失败"
+                }
             _isLoading.value = false
+            FileLogger.d("MainVM", "loadClips end isLoading=false")
         }
     }
 
     private fun syncLatestToSystemClipboard(clips: List<ClipItem>) {
         if (clips.isEmpty()) {
+            FileLogger.w("MainVM", "syncLatestToSystemClipboard: empty list")
             _infoMessage.value = "列表为空，无法同步到剪贴板"
             return
         }
         val latest = clips.maxByOrNull { it.createdAt } ?: return
+        FileLogger.i(
+            "MainVM",
+            "syncLatestToSystemClipboard id=${latest.id} textLen=${latest.text.length} " +
+                "preview=${FileLogger.preview(latest.text, 120)}"
+        )
         val cm = getApplication<Application>().getSystemService(Context.CLIPBOARD_SERVICE) as ClipboardManager
         runCatching {
             cm.setPrimaryClip(ClipData.newPlainText("clipboard_sync", latest.text))
         }.onSuccess {
+            FileLogger.i("MainVM", "syncLatestToSystemClipboard setPrimaryClip ok")
             _infoMessage.value = "已把最新一条同步到系统剪贴板"
         }.onFailure {
+            FileLogger.e("MainVM", "syncLatestToSystemClipboard failed", it)
             _infoMessage.value = "无法写入剪贴板：${it.message ?: "系统限制"}"
         }
     }
@@ -81,11 +97,16 @@ class MainViewModel(
     fun postClip(text: String) {
         if (text.isBlank()) return
         viewModelScope.launch {
+            FileLogger.i("MainVM", "postClip textLen=${text.length} preview=${FileLogger.preview(text, 100)}")
             _isLoading.value = true
             _error.value = null
             repository.postClip(text)
-                .onSuccess { loadClips(syncClipboard = true) }
+                .onSuccess {
+                    FileLogger.i("MainVM", "postClip success -> loadClips syncClipboard=true")
+                    loadClips(syncClipboard = true)
+                }
                 .onFailure {
+                    FileLogger.e("MainVM", "postClip fail", it)
                     _error.value = it.message ?: "提交失败"
                     _isLoading.value = false
                 }
@@ -94,26 +115,36 @@ class MainViewModel(
 
     fun deleteClip(id: String) {
         viewModelScope.launch {
+            FileLogger.i("MainVM", "deleteClip id=$id")
             _error.value = null
             repository.deleteClip(id)
                 .onSuccess { loadClips(syncClipboard = false) }
-                .onFailure { _error.value = it.message ?: "删除失败" }
+                .onFailure {
+                    FileLogger.e("MainVM", "deleteClip fail", it)
+                    _error.value = it.message ?: "删除失败"
+                }
         }
     }
 
     /** 手动刷新：拉列表 + 把最新一条写入系统剪贴板（此前仅拉列表，真机上剪贴板不会变） */
-    fun refresh() = loadClips(syncClipboard = true)
+    fun refresh() {
+        FileLogger.i("MainVM", "refresh()")
+        loadClips(syncClipboard = true)
+    }
 
     /** 点击单条记录：复制该条全文到系统剪贴板 */
     fun copyTextToClipboard(text: String) {
         if (text.isBlank()) return
         viewModelScope.launch(Dispatchers.Main) {
+            FileLogger.i("MainVM", "copyTextToClipboard textLen=${text.length}")
             val cm = getApplication<Application>().getSystemService(Context.CLIPBOARD_SERVICE) as ClipboardManager
             runCatching {
                 cm.setPrimaryClip(ClipData.newPlainText("clipboard_sync", text))
             }.onSuccess {
+                FileLogger.d("MainVM", "copyTextToClipboard ok")
                 _infoMessage.value = "已复制到剪贴板"
             }.onFailure {
+                FileLogger.e("MainVM", "copyTextToClipboard fail", it)
                 _infoMessage.value = "复制失败：${it.message ?: "系统限制"}"
             }
         }
@@ -128,6 +159,7 @@ class MainViewModel(
     }
 
     fun logout() {
+        FileLogger.w("MainVM", "logout clearing prefs")
         prefs.clear()
     }
 

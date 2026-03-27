@@ -4,13 +4,18 @@ import android.content.BroadcastReceiver
 import android.content.Context
 import android.content.Intent
 import android.util.Log
+import com.clipboardsync.app.util.FileLogger
 import com.clipboardsync.app.util.WorkManagerHelper
 
 class BootReceiver : BroadcastReceiver() {
     override fun onReceive(context: Context, intent: Intent) {
+        FileLogger.init(context)
         if (intent.action == Intent.ACTION_BOOT_COMPLETED) {
             Log.i("BootReceiver", "Boot completed, scheduling periodic sync")
+            FileLogger.i("BootReceiver", "ACTION_BOOT_COMPLETED -> schedulePeriodicSync")
             WorkManagerHelper.schedulePeriodicSync(context)
+        } else {
+            FileLogger.d("BootReceiver", "ignore action=${intent.action}")
         }
     }
 }

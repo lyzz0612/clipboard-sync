@@ -11,10 +11,13 @@ import com.clipboardsync.app.data.local.PrefsManager
 import com.clipboardsync.app.ui.main.MainScreen
 import com.clipboardsync.app.ui.setup.SetupScreen
 import com.clipboardsync.app.ui.theme.ClipboardSyncTheme
+import com.clipboardsync.app.util.FileLogger
 
 class MainActivity : ComponentActivity() {
     override fun onCreate(savedInstanceState: Bundle?) {
         super.onCreate(savedInstanceState)
+        FileLogger.init(applicationContext)
+        FileLogger.i("MainActivity", "onCreate")
         setContent {
             ClipboardSyncTheme {
                 val navController = rememberNavController()
