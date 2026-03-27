@@ -1,4 +1,4 @@
-# Deployment
+# 部署说明
 
 ## Cloudflare Worker
 
@@ -28,7 +28,7 @@
 - 当 `worker/**` 有变更并推送到 `main` 时，自动部署 Worker。  
 - 支持 `workflow_dispatch` 手动触发。
 
-## Android build
+## Android 构建
 
 - 当 `android/**` 有变更并推送时，GitHub Actions 构建 debug APK。  
 - 构建产物上传到 GitHub Actions Artifacts，供下载。  

@@ -2,23 +2,23 @@
 
 > 说明：Android 工程尚未创建，以下为规划与占位说明。
 
-## Prerequisites
+## 前置要求
 
 - Android Studio（推荐最新稳定版）  
 - JDK 17  
 
-## Build
+## 构建
 
 ```bash
 ./gradlew assembleDebug
 ```
 
-## Dev server connection
+## 开发服务器连接
 
 调试时将 API Base URL 设为 `http://<开发机局域网 IP>:8787`。  
 若使用明文 HTTP，可能需要在 `AndroidManifest.xml` 中配置 `android:usesCleartextTraffic="true"`（仅调试环境建议）。
 
-## Permissions
+## 权限
 
 计划涉及权限包括但不限于：
 
@@ -36,6 +36,6 @@
 - **省电 / 电池优化**：设置 → 省电与电池 → 应用智能省电 / 电池优化，将本应用设为无限制或加入白名单  
 - **后台弹出界面**（若需要）：在应用详情中允许后台活动  
 
-## Status
+## 当前状态
 
 实现与工程结构将在后续迭代中补充。

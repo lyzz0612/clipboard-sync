@@ -137,6 +137,14 @@ body::before {
 }
 .btn-logout:hover { background: var(--surface-hover); }
 
+.btn-lang {
+  background: var(--surface);
+  border: 1px solid var(--border);
+  font-size: .78rem;
+  padding: .4rem .7rem;
+}
+.btn-lang:hover { background: var(--surface-hover); }
+
 .btn-primary {
   background: var(--accent);
   color: #fff;
@@ -329,7 +337,10 @@ textarea:focus {
       </div>
       <h1 data-i18n="title"></h1>
     </div>
-    <button class="btn btn-logout" id="logoutBtn" data-i18n="logout"></button>
+    <div style="display:flex;gap:.5rem">
+      <button class="btn btn-lang" id="langSwitch"></button>
+      <button class="btn btn-logout" id="logoutBtn" data-i18n="logout"></button>
+    </div>
   </div>
   <div class="compose">
     <textarea id="clipText"></textarea>
@@ -386,13 +397,28 @@ textarea:focus {
     }
   };
 
-  var lang = /^zh/i.test(navigator.language) ? 'zh' : 'en';
+  var savedLang = localStorage.getItem('lang');
+  var lang = savedLang || (/^zh/i.test(navigator.language) ? 'zh' : 'en');
   var t = i18n[lang];
 
-  document.title = t.pageTitle;
-  document.documentElement.lang = lang === 'zh' ? 'zh-CN' : 'en';
-  document.querySelectorAll('[data-i18n]').forEach(function(el) {
-    el.textContent = t[el.getAttribute('data-i18n')];
+  var langSwitch = document.getElementById('langSwitch');
+
+  function applyLang() {
+    t = i18n[lang];
+    document.title = t.pageTitle;
+    document.documentElement.lang = lang === 'zh' ? 'zh-CN' : 'en';
+    document.querySelectorAll('[data-i18n]').forEach(function(el) {
+      el.textContent = t[el.getAttribute('data-i18n')];
+    });
+    langSwitch.textContent = lang === 'zh' ? 'EN' : '中文';
+    if (clipText) clipText.placeholder = t.placeholder;
+  }
+
+  langSwitch.addEventListener('click', function() {
+    lang = lang === 'zh' ? 'en' : 'zh';
+    localStorage.setItem('lang', lang);
+    applyLang();
+    loadClips();
   });
 
   var token = sessionStorage.getItem('token');
@@ -407,7 +433,7 @@ textarea:focus {
   var clipList = document.getElementById('clipList');
   var toastTimer = null;
 
-  clipText.placeholder = t.placeholder;
+  applyLang();
 
   function showToast(msg) {
     clearTimeout(toastTimer);

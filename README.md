@@ -10,7 +10,7 @@
 | `android/` | Android 客户端（Kotlin / Compose） |
 | `docs/` | 项目文档 |
 
-## Quick start
+## 快速开始
 
 1. 启动本地 Worker：`cd worker && npm install && npm run dev`，开发服务默认在 `http://localhost:8787`。
 2. 在浏览器中打开上述地址，测试 Web 界面。
@@ -23,6 +23,6 @@
 - [Worker 开发指南](worker/README.md)
 - [Android 开发指南](android/README.md)
 
-## Deployment
+## 部署
 
 推送到 `main` 分支时，GitHub Actions 会自动部署 Worker。详细步骤与密钥配置见 [docs/deploy.md](docs/deploy.md)。
