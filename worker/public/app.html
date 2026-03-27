@@ -1,0 +1,238 @@
+<!DOCTYPE html>
+<html lang="en">
+<head>
+<meta charset="UTF-8">
+<meta name="viewport" content="width=device-width, initial-scale=1.0">
+<title>Clipboard Sync — Dashboard</title>
+<style>
+*, *::before, *::after { box-sizing: border-box; margin: 0; padding: 0; }
+body {
+  font-family: -apple-system, BlinkMacSystemFont, 'Segoe UI', Roboto, Helvetica, Arial, sans-serif;
+  background: #f0f2f5;
+  min-height: 100vh;
+  padding: 1rem;
+}
+.container { max-width: 640px; margin: 0 auto; }
+.header {
+  display: flex;
+  align-items: center;
+  justify-content: space-between;
+  margin-bottom: 1.5rem;
+}
+.header h1 { font-size: 1.3rem; color: #1a1a2e; }
+.btn {
+  padding: .5rem 1rem;
+  border: none;
+  border-radius: 8px;
+  font-size: .85rem;
+  font-weight: 600;
+  cursor: pointer;
+  transition: background .2s;
+}
+.btn-logout { background: #e9ecef; color: #333; }
+.btn-logout:hover { background: #dee2e6; }
+.btn-primary { background: #4361ee; color: #fff; }
+.btn-primary:hover { background: #3a56d4; }
+.btn-sm { padding: .35rem .7rem; font-size: .8rem; }
+.btn-danger { background: #fee2e2; color: #b91c1c; }
+.btn-danger:hover { background: #fecaca; }
+.compose {
+  background: #fff;
+  border-radius: 12px;
+  box-shadow: 0 2px 16px rgba(0,0,0,.08);
+  padding: 1.25rem;
+  margin-bottom: 1.5rem;
+}
+textarea {
+  width: 100%;
+  min-height: 100px;
+  padding: .65rem .75rem;
+  border: 1px solid #ddd;
+  border-radius: 8px;
+  font-size: .95rem;
+  font-family: inherit;
+  resize: vertical;
+  margin-bottom: .75rem;
+}
+textarea:focus { outline: none; border-color: #4361ee; }
+.compose-actions { display: flex; justify-content: flex-end; }
+.clips-header {
+  display: flex;
+  align-items: center;
+  justify-content: space-between;
+  margin-bottom: .75rem;
+}
+.clips-header h2 { font-size: 1.1rem; color: #333; }
+.clip-list { list-style: none; }
+.clip-item {
+  background: #fff;
+  border-radius: 10px;
+  box-shadow: 0 1px 6px rgba(0,0,0,.06);
+  padding: 1rem 1.25rem;
+  margin-bottom: .6rem;
+  display: flex;
+  align-items: flex-start;
+  gap: .75rem;
+}
+.clip-body { flex: 1; min-width: 0; }
+.clip-text {
+  font-size: .92rem;
+  color: #222;
+  white-space: pre-wrap;
+  word-break: break-word;
+  max-height: 6em;
+  overflow: hidden;
+}
+.clip-time {
+  font-size: .75rem;
+  color: #888;
+  margin-top: .3rem;
+}
+.clip-actions { flex-shrink: 0; }
+.empty {
+  text-align: center;
+  color: #999;
+  padding: 2rem;
+  font-size: .95rem;
+}
+.error-toast {
+  position: fixed;
+  top: 1rem;
+  left: 50%;
+  transform: translateX(-50%);
+  background: #b91c1c;
+  color: #fff;
+  padding: .6rem 1.2rem;
+  border-radius: 8px;
+  font-size: .85rem;
+  display: none;
+  z-index: 100;
+}
+</style>
+</head>
+<body>
+<div class="error-toast" id="toast"></div>
+<div class="container">
+  <div class="header">
+    <h1>Clipboard Sync</h1>
+    <button class="btn btn-logout" id="logoutBtn">Logout</button>
+  </div>
+  <div class="compose">
+    <textarea id="clipText" placeholder="Paste or type something..."></textarea>
+    <div class="compose-actions">
+      <button class="btn btn-primary" id="submitBtn">Submit</button>
+    </div>
+  </div>
+  <div class="clips-header">
+    <h2>Your Clips</h2>
+    <button class="btn btn-sm btn-primary" id="refreshBtn">Refresh</button>
+  </div>
+  <ul class="clip-list" id="clipList"></ul>
+</div>
+<script>
+(function() {
+  var token = sessionStorage.getItem('token');
+  if (!token) { window.location.href = 'index.html'; return; }
+
+  var toast = document.getElementById('toast');
+  var clipText = document.getElementById('clipText');
+  var submitBtn = document.getElementById('submitBtn');
+  var refreshBtn = document.getElementById('refreshBtn');
+  var logoutBtn = document.getElementById('logoutBtn');
+  var clipList = document.getElementById('clipList');
+  var refreshTimer = null;
+
+  function showToast(msg) {
+    toast.textContent = msg;
+    toast.style.display = 'block';
+    setTimeout(function() { toast.style.display = 'none'; }, 3000);
+  }
+
+  function api(method, path, body) {
+    var opts = {
+      method: method,
+      headers: { 'Authorization': 'Bearer ' + token, 'Content-Type': 'application/json' }
+    };
+    if (body) opts.body = JSON.stringify(body);
+    return fetch(path, opts).then(function(r) {
+      if (r.status === 401) {
+        sessionStorage.removeItem('token');
+        window.location.href = 'index.html';
+        throw new Error('Session expired');
+      }
+      return r.json().then(function(d) {
+        if (!r.ok) throw new Error(d.error || 'Request failed');
+        return d;
+      });
+    });
+  }
+
+  function formatTime(iso) {
+    var d = new Date(iso);
+    return d.toLocaleString();
+  }
+
+  function truncate(text, len) {
+    return text.length > len ? text.substring(0, len) + '…' : text;
+  }
+
+  function renderClips(clips) {
+    if (!clips.length) {
+      clipList.innerHTML = '<li class="empty">No clips yet. Add one above!</li>';
+      return;
+    }
+    clipList.innerHTML = '';
+    clips.forEach(function(clip) {
+      var li = document.createElement('li');
+      li.className = 'clip-item';
+      li.innerHTML =
+        '<div class="clip-body">' +
+          '<div class="clip-text"></div>' +
+          '<div class="clip-time">' + formatTime(clip.createdAt) + '</div>' +
+        '</div>' +
+        '<div class="clip-actions">' +
+          '<button class="btn btn-sm btn-danger" data-id="' + clip.id + '">Delete</button>' +
+        '</div>';
+      li.querySelector('.clip-text').textContent = truncate(clip.text, 500);
+      clipList.appendChild(li);
+    });
+  }
+
+  function loadClips() {
+    api('GET', '/api/clips').then(function(d) { renderClips(d.clips); })
+      .catch(function(e) { showToast(e.message); });
+  }
+
+  submitBtn.addEventListener('click', function() {
+    var text = clipText.value.trim();
+    if (!text) return;
+    submitBtn.disabled = true;
+    api('POST', '/api/clips', { text: text }).then(function() {
+      clipText.value = '';
+      loadClips();
+    }).catch(function(e) { showToast(e.message); })
+      .finally(function() { submitBtn.disabled = false; });
+  });
+
+  clipList.addEventListener('click', function(e) {
+    var btn = e.target.closest('[data-id]');
+    if (!btn) return;
+    var id = btn.getAttribute('data-id');
+    btn.disabled = true;
+    api('DELETE', '/api/clips/' + id).then(function() { loadClips(); })
+      .catch(function(e) { showToast(e.message); });
+  });
+
+  refreshBtn.addEventListener('click', loadClips);
+
+  logoutBtn.addEventListener('click', function() {
+    sessionStorage.removeItem('token');
+    window.location.href = 'index.html';
+  });
+
+  loadClips();
+  refreshTimer = setInterval(loadClips, 30000);
+})();
+</script>
+</body>
+</html>

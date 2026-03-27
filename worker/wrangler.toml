@@ -1,0 +1,10 @@
+name = "clipboard-sync"
+main = "src/index.ts"
+compatibility_date = "2024-09-23"
+
+[assets]
+directory = "public"
+
+[[kv_namespaces]]
+binding = "KV"
+id = "PLACEHOLDER_KV_ID"

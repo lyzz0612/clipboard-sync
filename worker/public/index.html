@@ -1,0 +1,190 @@
+<!DOCTYPE html>
+<html lang="en">
+<head>
+<meta charset="UTF-8">
+<meta name="viewport" content="width=device-width, initial-scale=1.0">
+<title>Clipboard Sync — Login</title>
+<style>
+*, *::before, *::after { box-sizing: border-box; margin: 0; padding: 0; }
+body {
+  font-family: -apple-system, BlinkMacSystemFont, 'Segoe UI', Roboto, Helvetica, Arial, sans-serif;
+  background: #f0f2f5;
+  min-height: 100vh;
+  display: flex;
+  align-items: center;
+  justify-content: center;
+  padding: 1rem;
+}
+.card {
+  background: #fff;
+  border-radius: 12px;
+  box-shadow: 0 2px 16px rgba(0,0,0,.08);
+  padding: 2.5rem 2rem;
+  width: 100%;
+  max-width: 380px;
+}
+h1 {
+  font-size: 1.5rem;
+  font-weight: 700;
+  text-align: center;
+  margin-bottom: 1.5rem;
+  color: #1a1a2e;
+}
+label {
+  display: block;
+  font-size: .85rem;
+  font-weight: 600;
+  color: #555;
+  margin-bottom: .3rem;
+}
+input {
+  width: 100%;
+  padding: .65rem .75rem;
+  border: 1px solid #ddd;
+  border-radius: 8px;
+  font-size: .95rem;
+  margin-bottom: 1rem;
+  transition: border-color .2s;
+}
+input:focus { outline: none; border-color: #4361ee; }
+.btn-group { display: flex; gap: .5rem; }
+button {
+  flex: 1;
+  padding: .7rem;
+  border: none;
+  border-radius: 8px;
+  font-size: .95rem;
+  font-weight: 600;
+  cursor: pointer;
+  transition: background .2s, opacity .2s;
+}
+button:disabled { opacity: .6; cursor: not-allowed; }
+.btn-primary { background: #4361ee; color: #fff; }
+.btn-primary:hover:not(:disabled) { background: #3a56d4; }
+.btn-secondary { background: #e9ecef; color: #333; }
+.btn-secondary:hover:not(:disabled) { background: #dee2e6; }
+.error {
+  margin-top: 1rem;
+  padding: .6rem .75rem;
+  background: #fee2e2;
+  color: #b91c1c;
+  border-radius: 8px;
+  font-size: .85rem;
+  display: none;
+}
+.info {
+  margin-top: 1rem;
+  padding: .6rem .75rem;
+  background: #dbeafe;
+  color: #1e40af;
+  border-radius: 8px;
+  font-size: .85rem;
+  display: none;
+}
+</style>
+</head>
+<body>
+<div class="card">
+  <h1>Clipboard Sync</h1>
+  <form id="form">
+    <label for="username">Username</label>
+    <input id="username" type="text" autocomplete="username" required>
+    <label for="password">Password</label>
+    <input id="password" type="password" autocomplete="current-password" required>
+    <div class="btn-group">
+      <button type="submit" class="btn-primary" id="loginBtn">Login</button>
+      <button type="button" class="btn-secondary" id="registerBtn">Register</button>
+    </div>
+  </form>
+  <div class="error" id="error"></div>
+  <div class="info" id="info"></div>
+</div>
+<script>
+(function() {
+  var errorEl = document.getElementById('error');
+  var infoEl = document.getElementById('info');
+  var form = document.getElementById('form');
+  var usernameInput = document.getElementById('username');
+  var passwordInput = document.getElementById('password');
+  var loginBtn = document.getElementById('loginBtn');
+  var registerBtn = document.getElementById('registerBtn');
+
+  function showError(msg) {
+    infoEl.style.display = 'none';
+    errorEl.textContent = msg;
+    errorEl.style.display = 'block';
+  }
+  function showInfo(msg) {
+    errorEl.style.display = 'none';
+    infoEl.textContent = msg;
+    infoEl.style.display = 'block';
+  }
+  function setLoading(v) {
+    loginBtn.disabled = v;
+    registerBtn.disabled = v;
+  }
+
+  if (sessionStorage.getItem('token')) {
+    window.location.href = 'app.html';
+    return;
+  }
+
+  var params = new URLSearchParams(window.location.search);
+  var autoUser = params.get('user');
+  var autoPass = params.get('pass');
+  if (autoUser && autoPass) {
+    usernameInput.value = autoUser;
+    passwordInput.value = autoPass;
+    doLogin(autoUser, autoPass);
+  }
+
+  form.addEventListener('submit', function(e) {
+    e.preventDefault();
+    doLogin(usernameInput.value, passwordInput.value);
+  });
+
+  registerBtn.addEventListener('click', function() {
+    var u = usernameInput.value.trim();
+    var p = passwordInput.value.trim();
+    if (!u || !p) { showError('Please enter username and password'); return; }
+    doRegister(u, p);
+  });
+
+  function doLogin(username, password) {
+    setLoading(true);
+    errorEl.style.display = 'none';
+    fetch('/api/login', {
+      method: 'POST',
+      headers: { 'Content-Type': 'application/json' },
+      body: JSON.stringify({ username: username, password: password })
+    })
+    .then(function(r) { return r.json().then(function(d) { return { ok: r.ok, data: d }; }); })
+    .then(function(res) {
+      if (!res.ok) throw new Error(res.data.error || 'Login failed');
+      sessionStorage.setItem('token', res.data.token);
+      history.replaceState(null, '', window.location.pathname);
+      window.location.href = 'app.html';
+    })
+    .catch(function(e) { showError(e.message); setLoading(false); });
+  }
+
+  function doRegister(username, password) {
+    setLoading(true);
+    showInfo('Registering...');
+    fetch('/api/register', {
+      method: 'POST',
+      headers: { 'Content-Type': 'application/json' },
+      body: JSON.stringify({ username: username, password: password })
+    })
+    .then(function(r) { return r.json().then(function(d) { return { ok: r.ok, data: d }; }); })
+    .then(function(res) {
+      if (!res.ok) throw new Error(res.data.error || 'Registration failed');
+      showInfo('Registered! Logging in...');
+      doLogin(username, password);
+    })
+    .catch(function(e) { showError(e.message); setLoading(false); });
+  }
+})();
+</script>
+</body>
+</html>
