@@ -106,11 +106,21 @@ class ClipboardRepository(private val prefs: PrefsManager) {
             "getDelta start sinceLen=${since.length} since=${FileLogger.preview(since, 80)}"
         )
         val response = getApi().getClipsDelta(since)
-        prefs.setLastSyncTime(response.serverTime)
         val clips = response.clips
+        // Do not advance watermark to serverTime: it is "now" at response time and can be later
+        // than a clip's createdAt, which would make createdAt > since false forever for that clip.
+        // Advance only by the max createdAt we actually received; if none, keep since unchanged.
+        val maxCreated = clips.maxOfOrNull { it.createdAt }
+        val newWatermark = if (maxCreated != null) {
+            maxOf(since, maxCreated)
+        } else {
+            since
+        }
+        prefs.setLastSyncTime(newWatermark)
         FileLogger.i(
             "Repo",
-            "getDelta ok serverTime=${FileLogger.preview(response.serverTime, 80)} count=${clips.size}"
+            "getDelta ok serverTime=${FileLogger.preview(response.serverTime, 80)} count=${clips.size} " +
+                "watermark=${FileLogger.preview(newWatermark, 80)}"
         )
         clips.forEachIndexed { i, c ->
             FileLogger.d(

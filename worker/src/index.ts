@@ -7,6 +7,9 @@ const CORS_HEADERS: Record<string, string> = {
   'Access-Control-Allow-Headers': 'Content-Type, Authorization',
 };
 
+/** KV 中每个用户最多保留的剪贴条数（新插入在前，超出则丢弃最旧的） */
+const MAX_CLIPS_PER_USER = 10;
+
 function json(data: unknown, status = 200): Response {
   return new Response(JSON.stringify(data), {
     status,
@@ -76,7 +79,7 @@ async function handleLogin(request: Request, env: Env): Promise<Response> {
 async function handleGetClips(env: Env, userId: string): Promise<Response> {
   const raw = await env.KV.get(`CLIPS:${userId}`);
   const clips: ClipItem[] = raw ? JSON.parse(raw) : [];
-  return json({ clips });
+  return json({ clips: clips.slice(0, MAX_CLIPS_PER_USER) });
 }
 
 async function handleGetClipsDelta(
@@ -88,7 +91,8 @@ async function handleGetClipsDelta(
   const since = url.searchParams.get('since') ?? '';
   const raw = await env.KV.get(`CLIPS:${userId}`);
   const clips: ClipItem[] = raw ? JSON.parse(raw) : [];
-  const filtered = since ? clips.filter((c) => c.createdAt > since) : clips;
+  const newest = clips.slice(0, MAX_CLIPS_PER_USER);
+  const filtered = since ? newest.filter((c) => c.createdAt > since) : newest;
   return json({ clips: filtered, serverTime: new Date().toISOString() });
 }
 
@@ -111,7 +115,7 @@ async function handlePostClip(
   const raw = await env.KV.get(`CLIPS:${userId}`);
   const clips: ClipItem[] = raw ? JSON.parse(raw) : [];
   clips.unshift(clip);
-  if (clips.length > 100) clips.length = 100;
+  if (clips.length > MAX_CLIPS_PER_USER) clips.length = MAX_CLIPS_PER_USER;
   await env.KV.put(`CLIPS:${userId}`, JSON.stringify(clips));
 
   return json({ clip }, 201);
