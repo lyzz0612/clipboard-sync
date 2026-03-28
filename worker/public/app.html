@@ -298,39 +298,97 @@ textarea:focus {
   opacity: .3;
 }
 
-/* ── QR login (App) ── */
-.qr-panel {
-  background: var(--surface);
-  border: 1px solid var(--border);
-  border-radius: 14px;
-  padding: 1rem 1.15rem;
-  margin-bottom: 1.25rem;
-  animation: fadeInUp .5s ease-out .1s both;
+/* ── QR modal (App login) ── */
+.qr-open-btn svg {
+  width: 18px;
+  height: 18px;
+  fill: var(--text-secondary);
 }
-.qr-panel h3 {
-  font-size: .92rem;
+.qr-open-btn:hover svg { fill: var(--text-primary); }
+
+.qr-modal {
+  position: fixed;
+  inset: 0;
+  z-index: 300;
+  display: none;
+  align-items: center;
+  justify-content: center;
+  padding: 1rem;
+  box-sizing: border-box;
+}
+.qr-modal.is-open { display: flex; }
+
+.qr-modal-backdrop {
+  position: absolute;
+  inset: 0;
+  background: rgba(0, 0, 0, 0.55);
+  backdrop-filter: blur(6px);
+  -webkit-backdrop-filter: blur(6px);
+}
+
+.qr-modal-sheet {
+  position: relative;
+  z-index: 1;
+  max-width: 360px;
+  width: 100%;
+  background: linear-gradient(145deg, rgba(35, 32, 28, 0.98), rgba(28, 25, 22, 0.99));
+  border: 1px solid var(--border);
+  border-radius: 16px;
+  padding: 1.25rem 1.35rem 1.1rem;
+  box-shadow: 0 20px 50px rgba(0, 0, 0, 0.45);
+  animation: fadeInUp .28s ease-out;
+}
+
+.qr-modal-sheet h3 {
+  font-size: .95rem;
   font-weight: 600;
   color: var(--text-primary);
-  margin-bottom: .35rem;
+  margin-bottom: .4rem;
+  padding-right: 2rem;
 }
-.qr-panel .qr-hint {
+.qr-modal-sheet .qr-hint {
   font-size: .78rem;
   color: var(--text-tertiary);
   line-height: 1.45;
-  margin-bottom: .85rem;
+  margin-bottom: 1rem;
 }
-.qr-panel .qr-row {
+.qr-modal-close {
+  position: absolute;
+  top: .65rem;
+  right: .65rem;
+  width: 32px;
+  height: 32px;
+  border: none;
+  border-radius: 8px;
+  background: var(--surface);
+  color: var(--text-secondary);
+  font-size: 1.35rem;
+  line-height: 1;
+  cursor: pointer;
+  font-family: inherit;
+  display: flex;
+  align-items: center;
+  justify-content: center;
+}
+.qr-modal-close:hover { background: var(--surface-hover); color: var(--text-primary); }
+
+.qr-modal .qr-row {
   display: flex;
   flex-wrap: wrap;
   align-items: center;
   gap: 1rem;
 }
-.qr-panel canvas {
-  display: block;
-  border-radius: 8px;
+.qr-mount {
+  min-width: 200px;
+  min-height: 200px;
+  border-radius: 10px;
   background: #fff;
-  padding: 6px;
+  padding: 8px;
+  display: flex;
+  align-items: center;
+  justify-content: center;
 }
+.qr-mount table { margin: 0 auto; }
 
 /* ── Toast ── */
 .toast {
@@ -371,17 +429,12 @@ textarea:focus {
       </div>
       <h1 data-i18n="title"></h1>
     </div>
-    <div style="display:flex;gap:.5rem">
+    <div style="display:flex;gap:.5rem;align-items:center">
+      <button type="button" class="btn btn-icon qr-open-btn" id="qrOpenBtn" data-i18n-title="qrOpenTitle" aria-label="QR">
+        <svg viewBox="0 0 24 24" xmlns="http://www.w3.org/2000/svg" aria-hidden="true"><path d="M3 3h6v6H3V3zm2 2v2h2V5H5zm8-2h6v6h-6V3zm2 2v2h2V5h-2zM3 15h6v6H3v-6zm2 2v2h2v-2H5zm13-2h1v1h-1v-1zm-4 0h2v1h-2v-1zm4 3h1v1h-1v-1zm0-3h1v1h-1v-1zm-1-1h1v1h-1v-1zm-4 3h2v2h-2v-2zm3 0h1v2h-1v-2zm1-1h2v1h-2v-1zm-4-2h2v2h-2v-2zm4 0h2v2h-2v-2zm2-1h1v1h-1v-1z"/></svg>
+      </button>
       <button class="btn btn-lang" id="langSwitch"></button>
       <button class="btn btn-logout" id="logoutBtn" data-i18n="logout"></button>
-    </div>
-  </div>
-  <div class="qr-panel" id="qrPanel">
-    <h3 data-i18n="qrTitle"></h3>
-    <p class="qr-hint" data-i18n="qrHint"></p>
-    <div class="qr-row">
-      <canvas id="qrCanvas" width="200" height="200" aria-label="App login QR"></canvas>
-      <button type="button" class="btn btn-sm btn-primary" id="qrRefreshBtn" data-i18n="qrRefresh"></button>
     </div>
   </div>
   <div class="compose">
@@ -398,7 +451,20 @@ textarea:focus {
     <ul class="clip-list" id="clipList"></ul>
   </div>
 </div>
-<script src="https://cdn.jsdelivr.net/npm/qrcode@1.5.3/build/qrcode.min.js"></script>
+
+<div class="qr-modal" id="qrModal" role="dialog" aria-modal="true" aria-labelledby="qrModalTitle">
+  <div class="qr-modal-backdrop" id="qrModalBackdrop"></div>
+  <div class="qr-modal-sheet">
+    <button type="button" class="qr-modal-close" id="qrModalClose" aria-label="Close">&times;</button>
+    <h3 id="qrModalTitle" data-i18n="qrTitle"></h3>
+    <p class="qr-hint" data-i18n="qrHint"></p>
+    <div class="qr-row">
+      <div id="qrMount" class="qr-mount"></div>
+      <button type="button" class="btn btn-sm btn-primary" id="qrRefreshBtn" data-i18n="qrRefresh"></button>
+    </div>
+  </div>
+</div>
+
 <script>
 (function() {
   var i18n = {
@@ -422,7 +488,8 @@ textarea:focus {
       qrTitle: 'App 扫码登录',
       qrHint: '需先在登录页用账号密码登录一次（用于确认身份），再在本页生成码。二维码仅含一次性令牌与服务器地址，不含密码。请在 App 登录页扫码。',
       qrRefresh: '刷新二维码',
-      qrLibMissing: '二维码库加载失败，请刷新页面',
+      qrOpenTitle: 'App 扫码登录',
+      qrLibMissing: '二维码库加载失败，请检查网络或稍后重试',
       qrGenFail: '生成二维码失败'
     },
     en: {
@@ -445,7 +512,8 @@ textarea:focus {
       qrTitle: 'Sign in with the app',
       qrHint: 'Sign in with username and password on the login page first (proves it is you), then generate the code here. The QR contains only a one-time token and server URL, not your password. Scan from the app login screen.',
       qrRefresh: 'Refresh QR',
-      qrLibMissing: 'QR library failed to load. Reload the page.',
+      qrOpenTitle: 'App QR sign-in',
+      qrLibMissing: 'Could not load QR library. Check your network and try again.',
       qrGenFail: 'Could not generate QR code'
     }
   };
@@ -462,6 +530,13 @@ textarea:focus {
     document.documentElement.lang = lang === 'zh' ? 'zh-CN' : 'en';
     document.querySelectorAll('[data-i18n]').forEach(function(el) {
       el.textContent = t[el.getAttribute('data-i18n')];
+    });
+    document.querySelectorAll('[data-i18n-title]').forEach(function(el) {
+      var k = el.getAttribute('data-i18n-title');
+      if (t[k]) {
+        el.setAttribute('title', t[k]);
+        el.setAttribute('aria-label', t[k]);
+      }
     });
     langSwitch.textContent = lang === 'zh' ? 'EN' : '中文';
     if (clipText) clipText.placeholder = t.placeholder;
@@ -624,47 +699,113 @@ textarea:focus {
     window.location.href = 'index.html';
   });
 
+  var qrScriptPromise = null;
+
+  function ensureQrLib() {
+    if (typeof QRCode !== 'undefined') return Promise.resolve();
+    if (qrScriptPromise) return qrScriptPromise;
+    qrScriptPromise = new Promise(function(resolve, reject) {
+      var urls = [
+        window.location.origin + '/qrcodejs.min.js',
+        'https://cdnjs.cloudflare.com/ajax/libs/qrcodejs/1.0.0/qrcode.min.js'
+      ];
+      var i = 0;
+      function tryNext() {
+        if (typeof QRCode !== 'undefined') {
+          resolve();
+          return;
+        }
+        if (i >= urls.length) {
+          reject(new Error('qr-lib'));
+          return;
+        }
+        var s = document.createElement('script');
+        s.async = true;
+        s.src = urls[i++];
+        s.onload = function() {
+          if (typeof QRCode !== 'undefined') resolve();
+          else tryNext();
+        };
+        s.onerror = function() {
+          tryNext();
+        };
+        document.head.appendChild(s);
+      }
+      tryNext();
+    });
+    return qrScriptPromise;
+  }
+
   function buildQrPayload(code) {
     var baseUrl = window.location.origin + '/';
     return JSON.stringify({ v: 1, u: baseUrl, c: code });
   }
 
   function drawQr(code) {
-    var canvas = document.getElementById('qrCanvas');
-    if (typeof QRCode === 'undefined') {
-      showToast(t.qrLibMissing);
-      return;
-    }
+    var mount = document.getElementById('qrMount');
+    if (!mount) return;
+    mount.innerHTML = '';
     var payload = buildQrPayload(code);
-    QRCode.toCanvas(
-      canvas,
-      payload,
-      { width: 200, margin: 1, color: { dark: '#1a1a1a', light: '#ffffff' } },
-      function(err) {
-        if (err) showToast(err.message || t.qrGenFail);
-      }
-    );
+    try {
+      new QRCode(mount, {
+        text: payload,
+        width: 200,
+        height: 200,
+        colorDark: '#1a1a1a',
+        colorLight: '#ffffff',
+        correctLevel: QRCode.CorrectLevel.M
+      });
+    } catch (e) {
+      showToast(e.message || t.qrGenFail);
+    }
   }
 
   function refreshQrSession() {
     var btn = document.getElementById('qrRefreshBtn');
     if (btn) btn.disabled = true;
-    api('POST', '/api/auth/qr-session', {})
+    ensureQrLib()
+      .then(function() {
+        return api('POST', '/api/auth/qr-session', {});
+      })
       .then(function(d) {
         drawQr(d.code);
       })
       .catch(function(e) {
-        showToast(e.message);
+        if (e && e.message === 'qr-lib') showToast(t.qrLibMissing);
+        else showToast(e.message || t.qrLibMissing);
       })
       .finally(function() {
         if (btn) btn.disabled = false;
       });
   }
 
-  document.getElementById('qrRefreshBtn').addEventListener('click', refreshQrSession);
+  var qrModal = document.getElementById('qrModal');
+  var qrOpenBtn = document.getElementById('qrOpenBtn');
+
+  function openQrModal() {
+    qrModal.classList.add('is-open');
+    document.body.style.overflow = 'hidden';
+    refreshQrSession();
+  }
+
+  function closeQrModal() {
+    qrModal.classList.remove('is-open');
+    document.body.style.overflow = '';
+  }
+
+  qrOpenBtn.addEventListener('click', openQrModal);
+  document.getElementById('qrModalClose').addEventListener('click', closeQrModal);
+  document.getElementById('qrModalBackdrop').addEventListener('click', closeQrModal);
+  document.getElementById('qrRefreshBtn').addEventListener('click', function(e) {
+    e.stopPropagation();
+    refreshQrSession();
+  });
+
+  document.addEventListener('keydown', function(e) {
+    if (e.key === 'Escape' && qrModal.classList.contains('is-open')) closeQrModal();
+  });
 
   loadClips();
-  refreshQrSession();
   setInterval(loadClips, 30000);
 })();
 </script>
