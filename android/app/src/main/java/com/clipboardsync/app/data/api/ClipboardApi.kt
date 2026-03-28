@@ -14,6 +14,9 @@ interface ClipboardApi {
     @POST("api/login")
     suspend fun login(@Body body: LoginRequest): LoginResponse
 
+    @POST("api/auth/qr-redeem")
+    suspend fun qrRedeem(@Body body: QrRedeemRequest): QrRedeemResponse
+
     @GET("api/clips")
     suspend fun getClips(): ClipsResponse
 

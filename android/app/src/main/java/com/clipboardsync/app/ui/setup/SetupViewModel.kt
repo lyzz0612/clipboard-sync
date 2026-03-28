@@ -3,9 +3,11 @@ package com.clipboardsync.app.ui.setup
 import androidx.lifecycle.ViewModel
 import androidx.lifecycle.ViewModelProvider
 import androidx.lifecycle.viewModelScope
+import com.clipboardsync.app.data.api.QrLoginPayload
 import com.clipboardsync.app.data.local.PrefsManager
 import com.clipboardsync.app.data.repository.ClipboardRepository
 import com.clipboardsync.app.util.FileLogger
+import kotlinx.serialization.json.Json
 import kotlinx.coroutines.flow.MutableStateFlow
 import kotlinx.coroutines.flow.StateFlow
 import kotlinx.coroutines.flow.asStateFlow
@@ -26,6 +28,8 @@ class SetupViewModel(
     private val repository: ClipboardRepository
 ) : ViewModel() {
 
+    private val qrJson = Json { ignoreUnknownKeys = true }
+
     private val _uiState = MutableStateFlow(SetupUiState())
     val uiState: StateFlow<SetupUiState> = _uiState.asStateFlow()
 
@@ -43,6 +47,53 @@ class SetupViewModel(
 
     fun clearError() {
         _uiState.update { it.copy(error = null) }
+    }
+
+    fun onCameraPermissionDenied() {
+        _uiState.update { it.copy(error = "需要相机权限才能扫码") }
+    }
+
+    /**
+     * 扫描网页生成的 JSON：`{"v":1,"u":"https://…/","c":"…48位hex…"}`（无密码）
+     */
+    fun onQrScan(raw: String) {
+        viewModelScope.launch {
+            val trimmed = raw.trim()
+            val payload = try {
+                qrJson.decodeFromString<QrLoginPayload>(trimmed)
+            } catch (e: Exception) {
+                FileLogger.e("SetupVM", "qr json parse fail", e)
+                _uiState.update {
+                    it.copy(error = "无法识别二维码，请使用网页已登录后生成的二维码")
+                }
+                return@launch
+            }
+            if (payload.v != 1) {
+                _uiState.update { it.copy(error = "不支持的二维码版本") }
+                return@launch
+            }
+            if (payload.u.isBlank() || payload.c.isBlank()) {
+                _uiState.update { it.copy(error = "二维码内容不完整") }
+                return@launch
+            }
+
+            FileLogger.i("SetupVM", "qr redeem start baseUrlLen=${payload.u.length}")
+            _uiState.update { it.copy(isLoading = true, error = null) }
+            prefs.setBaseUrl(payload.u)
+            repository.invalidateApi()
+
+            repository.qrRedeem(payload.c)
+                .onSuccess {
+                    FileLogger.i("SetupVM", "qr redeem success")
+                    _uiState.update { it.copy(isLoading = false, loginSuccess = true) }
+                }
+                .onFailure { e ->
+                    FileLogger.e("SetupVM", "qr redeem fail", e)
+                    _uiState.update {
+                        it.copy(isLoading = false, error = e.message ?: "扫码登录失败")
+                    }
+                }
+        }
     }
 
     fun login() {

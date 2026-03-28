@@ -298,6 +298,40 @@ textarea:focus {
   opacity: .3;
 }
 
+/* ── QR login (App) ── */
+.qr-panel {
+  background: var(--surface);
+  border: 1px solid var(--border);
+  border-radius: 14px;
+  padding: 1rem 1.15rem;
+  margin-bottom: 1.25rem;
+  animation: fadeInUp .5s ease-out .1s both;
+}
+.qr-panel h3 {
+  font-size: .92rem;
+  font-weight: 600;
+  color: var(--text-primary);
+  margin-bottom: .35rem;
+}
+.qr-panel .qr-hint {
+  font-size: .78rem;
+  color: var(--text-tertiary);
+  line-height: 1.45;
+  margin-bottom: .85rem;
+}
+.qr-panel .qr-row {
+  display: flex;
+  flex-wrap: wrap;
+  align-items: center;
+  gap: 1rem;
+}
+.qr-panel canvas {
+  display: block;
+  border-radius: 8px;
+  background: #fff;
+  padding: 6px;
+}
+
 /* ── Toast ── */
 .toast {
   position: fixed;
@@ -342,6 +376,14 @@ textarea:focus {
       <button class="btn btn-logout" id="logoutBtn" data-i18n="logout"></button>
     </div>
   </div>
+  <div class="qr-panel" id="qrPanel">
+    <h3 data-i18n="qrTitle"></h3>
+    <p class="qr-hint" data-i18n="qrHint"></p>
+    <div class="qr-row">
+      <canvas id="qrCanvas" width="200" height="200" aria-label="App login QR"></canvas>
+      <button type="button" class="btn btn-sm btn-primary" id="qrRefreshBtn" data-i18n="qrRefresh"></button>
+    </div>
+  </div>
   <div class="compose">
     <textarea id="clipText"></textarea>
     <div class="compose-actions">
@@ -356,6 +398,7 @@ textarea:focus {
     <ul class="clip-list" id="clipList"></ul>
   </div>
 </div>
+<script src="https://cdn.jsdelivr.net/npm/qrcode@1.5.3/build/qrcode.min.js"></script>
 <script>
 (function() {
   var i18n = {
@@ -375,7 +418,12 @@ textarea:focus {
       justNow: '刚刚',
       mAgo: '分钟前',
       hAgo: '小时前',
-      pageTitle: '剪贴板同步'
+      pageTitle: '剪贴板同步',
+      qrTitle: 'App 扫码登录',
+      qrHint: '需先在登录页用账号密码登录一次（用于确认身份），再在本页生成码。二维码仅含一次性令牌与服务器地址，不含密码。请在 App 登录页扫码。',
+      qrRefresh: '刷新二维码',
+      qrLibMissing: '二维码库加载失败，请刷新页面',
+      qrGenFail: '生成二维码失败'
     },
     en: {
       title: 'Clipboard Sync',
@@ -393,7 +441,12 @@ textarea:focus {
       justNow: 'Just now',
       mAgo: 'm ago',
       hAgo: 'h ago',
-      pageTitle: 'Clipboard Sync'
+      pageTitle: 'Clipboard Sync',
+      qrTitle: 'Sign in with the app',
+      qrHint: 'Sign in with username and password on the login page first (proves it is you), then generate the code here. The QR contains only a one-time token and server URL, not your password. Scan from the app login screen.',
+      qrRefresh: 'Refresh QR',
+      qrLibMissing: 'QR library failed to load. Reload the page.',
+      qrGenFail: 'Could not generate QR code'
     }
   };
 
@@ -571,7 +624,47 @@ textarea:focus {
     window.location.href = 'index.html';
   });
 
+  function buildQrPayload(code) {
+    var baseUrl = window.location.origin + '/';
+    return JSON.stringify({ v: 1, u: baseUrl, c: code });
+  }
+
+  function drawQr(code) {
+    var canvas = document.getElementById('qrCanvas');
+    if (typeof QRCode === 'undefined') {
+      showToast(t.qrLibMissing);
+      return;
+    }
+    var payload = buildQrPayload(code);
+    QRCode.toCanvas(
+      canvas,
+      payload,
+      { width: 200, margin: 1, color: { dark: '#1a1a1a', light: '#ffffff' } },
+      function(err) {
+        if (err) showToast(err.message || t.qrGenFail);
+      }
+    );
+  }
+
+  function refreshQrSession() {
+    var btn = document.getElementById('qrRefreshBtn');
+    if (btn) btn.disabled = true;
+    api('POST', '/api/auth/qr-session', {})
+      .then(function(d) {
+        drawQr(d.code);
+      })
+      .catch(function(e) {
+        showToast(e.message);
+      })
+      .finally(function() {
+        if (btn) btn.disabled = false;
+      });
+  }
+
+  document.getElementById('qrRefreshBtn').addEventListener('click', refreshQrSession);
+
   loadClips();
+  refreshQrSession();
   setInterval(loadClips, 30000);
 })();
 </script>

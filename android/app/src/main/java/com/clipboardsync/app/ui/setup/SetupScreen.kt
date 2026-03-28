@@ -1,7 +1,13 @@
 package com.clipboardsync.app.ui.setup
 
+import android.Manifest
+import android.content.pm.PackageManager
+import androidx.activity.compose.rememberLauncherForActivityResult
+import androidx.activity.result.contract.ActivityResultContracts
 import androidx.compose.foundation.layout.Arrangement
 import androidx.compose.foundation.layout.Column
+import androidx.compose.foundation.rememberScrollState
+import androidx.compose.foundation.verticalScroll
 import androidx.compose.foundation.layout.Row
 import androidx.compose.foundation.layout.Spacer
 import androidx.compose.foundation.layout.fillMaxSize
@@ -9,6 +15,7 @@ import androidx.compose.foundation.layout.fillMaxWidth
 import androidx.compose.foundation.layout.height
 import androidx.compose.foundation.layout.padding
 import androidx.compose.foundation.layout.width
+import androidx.core.content.ContextCompat
 import androidx.compose.material3.Button
 import androidx.compose.material3.CircularProgressIndicator
 import androidx.compose.material3.MaterialTheme
@@ -17,6 +24,7 @@ import androidx.compose.material3.OutlinedTextField
 import androidx.compose.material3.Scaffold
 import androidx.compose.material3.SnackbarHost
 import androidx.compose.material3.SnackbarHostState
+import androidx.compose.material3.HorizontalDivider
 import androidx.compose.material3.Text
 import androidx.compose.runtime.Composable
 import androidx.compose.runtime.LaunchedEffect
@@ -33,6 +41,8 @@ import androidx.lifecycle.viewmodel.compose.viewModel
 import com.clipboardsync.app.R
 import com.clipboardsync.app.data.local.PrefsManager
 import com.clipboardsync.app.data.repository.ClipboardRepository
+import com.journeyapps.barcodescanner.ScanContract
+import com.journeyapps.barcodescanner.ScanOptions
 
 @Composable
 fun SetupScreen(
@@ -48,6 +58,40 @@ fun SetupScreen(
 
     val uiState by viewModel.uiState.collectAsState()
     val snackbarHostState = remember { SnackbarHostState() }
+
+    val scanLauncher = rememberLauncherForActivityResult(ScanContract()) { result ->
+        result?.contents?.let { viewModel.onQrScan(it) }
+    }
+
+    val cameraPermissionLauncher = rememberLauncherForActivityResult(
+        ActivityResultContracts.RequestPermission()
+    ) { granted ->
+        if (granted) {
+            scanLauncher.launch(
+                ScanOptions().apply {
+                    setPrompt("扫码登录")
+                    setBeepEnabled(false)
+                }
+            )
+        } else {
+            viewModel.onCameraPermissionDenied()
+        }
+    }
+
+    fun openQrScanner() {
+        when {
+            ContextCompat.checkSelfPermission(context, Manifest.permission.CAMERA) ==
+                PackageManager.PERMISSION_GRANTED -> {
+                scanLauncher.launch(
+                    ScanOptions().apply {
+                        setPrompt("扫码登录")
+                        setBeepEnabled(false)
+                    }
+                )
+            }
+            else -> cameraPermissionLauncher.launch(Manifest.permission.CAMERA)
+        }
+    }
 
     LaunchedEffect(uiState.loginSuccess) {
         if (uiState.loginSuccess) {
@@ -68,9 +112,10 @@ fun SetupScreen(
         Column(
             modifier = Modifier
                 .fillMaxSize()
+                .verticalScroll(rememberScrollState())
                 .padding(padding)
-                .padding(horizontal = 24.dp),
-            verticalArrangement = Arrangement.Center,
+                .padding(horizontal = 24.dp, vertical = 16.dp),
+            verticalArrangement = Arrangement.Top,
             horizontalAlignment = Alignment.CenterHorizontally
         ) {
             Text(
@@ -79,7 +124,39 @@ fun SetupScreen(
                 color = MaterialTheme.colorScheme.primary
             )
 
-            Spacer(modifier = Modifier.height(32.dp))
+            Spacer(modifier = Modifier.height(20.dp))
+
+            Text(
+                text = "推荐：在浏览器先用账号密码登录一次并打开剪贴板页，页面会显示二维码；此处直接扫码即可，无需填写下面三项（码里已含服务器地址与一次性令牌，不含密码）。",
+                style = MaterialTheme.typography.bodySmall,
+                color = MaterialTheme.colorScheme.onSurfaceVariant,
+                modifier = Modifier.fillMaxWidth()
+            )
+
+            Spacer(modifier = Modifier.height(16.dp))
+
+            OutlinedButton(
+                onClick = { openQrScanner() },
+                enabled = !uiState.isLoading,
+                modifier = Modifier.fillMaxWidth()
+            ) {
+                Text("扫码登录（网页二维码）")
+            }
+
+            Spacer(modifier = Modifier.height(24.dp))
+
+            HorizontalDivider(modifier = Modifier.fillMaxWidth())
+
+            Spacer(modifier = Modifier.height(12.dp))
+
+            Text(
+                text = "或手动输入（无网页 / 无相机时）",
+                style = MaterialTheme.typography.labelLarge,
+                color = MaterialTheme.colorScheme.onSurfaceVariant,
+                modifier = Modifier.fillMaxWidth()
+            )
+
+            Spacer(modifier = Modifier.height(12.dp))
 
             OutlinedTextField(
                 value = uiState.baseUrl,
@@ -137,6 +214,8 @@ fun SetupScreen(
                     }
                 }
             }
+
+            Spacer(modifier = Modifier.height(24.dp))
         }
     }
 }

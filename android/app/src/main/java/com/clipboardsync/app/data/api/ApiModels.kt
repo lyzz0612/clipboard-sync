@@ -11,6 +11,16 @@ data class LoginRequest(val username: String, val password: String)
 @Serializable
 data class LoginResponse(val token: String)
 
+/** 网页二维码 JSON：仅含版本、API 根地址、一次性兑换码 */
+@Serializable
+data class QrLoginPayload(val v: Int, val u: String, val c: String)
+
+@Serializable
+data class QrRedeemRequest(val code: String)
+
+@Serializable
+data class QrRedeemResponse(val token: String, val username: String)
+
 @Serializable
 data class RegisterResponse(val ok: Boolean, val message: String)
 

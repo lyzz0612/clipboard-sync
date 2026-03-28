@@ -10,6 +10,9 @@ const CORS_HEADERS: Record<string, string> = {
 /** KV 中每个用户最多保留的剪贴条数（新插入在前，超出则丢弃最旧的） */
 const MAX_CLIPS_PER_USER = 10;
 
+/** 扫码登录一次性码：KV 存活时间（秒），仅存储 userId/username，不含密码 */
+const QR_LOGIN_TTL_SEC = 300;
+
 function json(data: unknown, status = 200): Response {
   return new Response(JSON.stringify(data), {
     status,
@@ -52,6 +55,34 @@ async function handleRegister(request: Request, env: Env): Promise<Response> {
   await env.KV.put(`USER:${username}`, JSON.stringify(record));
 
   return json({ ok: true, message: 'registered' }, 201);
+}
+
+async function handleQrSession(env: Env, userId: string, username: string): Promise<Response> {
+  const bytes = new Uint8Array(24);
+  crypto.getRandomValues(bytes);
+  const code = [...bytes].map((b) => b.toString(16).padStart(2, '0')).join('');
+  const key = `QRLOGIN:${code}`;
+  await env.KV.put(key, JSON.stringify({ sub: userId, username }), {
+    expirationTtl: QR_LOGIN_TTL_SEC,
+  });
+  return json({ code, expiresIn: QR_LOGIN_TTL_SEC });
+}
+
+async function handleQrRedeem(request: Request, env: Env): Promise<Response> {
+  const body = (await request.json()) as { code?: string };
+  const rawCode = typeof body.code === 'string' ? body.code.trim().toLowerCase() : '';
+  if (!rawCode || !/^[0-9a-f]{48}$/.test(rawCode)) {
+    return errorResponse('invalid code', 400);
+  }
+  const key = `QRLOGIN:${rawCode}`;
+  const raw = await env.KV.get(key);
+  if (!raw) {
+    return errorResponse('invalid or expired code', 401);
+  }
+  await env.KV.delete(key);
+  const { sub, username } = JSON.parse(raw) as { sub: string; username: string };
+  const token = await signJwt({ sub, username }, env.JWT_SECRET);
+  return json({ token, username });
 }
 
 async function handleLogin(request: Request, env: Env): Promise<Response> {
@@ -151,6 +182,10 @@ export default {
     }
 
     try {
+      if (path === '/api/auth/qr-redeem' && request.method === 'POST') {
+        return await handleQrRedeem(request, env);
+      }
+
       if (path === '/api/register' && request.method === 'POST') {
         return await handleRegister(request, env);
       }
@@ -162,6 +197,10 @@ export default {
       const authResult = await authenticate(request, env);
       if (authResult instanceof Response) return authResult;
       const userId = authResult.sub;
+
+      if (path === '/api/auth/qr-session' && request.method === 'POST') {
+        return await handleQrSession(env, userId, authResult.username);
+      }
 
       if (path === '/api/clips' && request.method === 'GET') {
         return await handleGetClips(env, userId);

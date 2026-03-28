@@ -4,6 +4,7 @@ import com.clipboardsync.app.data.api.ClipboardApi
 import com.clipboardsync.app.data.api.ClipItem
 import com.clipboardsync.app.data.api.LoginRequest
 import com.clipboardsync.app.data.api.PostClipRequest
+import com.clipboardsync.app.data.api.QrRedeemRequest
 import com.clipboardsync.app.data.api.RegisterRequest
 import com.clipboardsync.app.data.local.PrefsManager
 import com.clipboardsync.app.util.FileLogger
@@ -73,6 +74,18 @@ class ClipboardRepository(private val prefs: PrefsManager) {
         response.message
     }.onFailure { e ->
         FileLogger.e("Repo", "register fail ${e.javaClass.simpleName}: ${e.message}", e)
+        handleError(e)
+    }
+
+    suspend fun qrRedeem(code: String): Result<String> = runCatching {
+        FileLogger.i("Repo", "qrRedeem start codeLen=${code.length}")
+        val response = getApi().qrRedeem(QrRedeemRequest(code))
+        prefs.setToken(response.token)
+        prefs.setUsername(response.username)
+        FileLogger.i("Repo", "qrRedeem ok user=${FileLogger.preview(response.username, 40)}")
+        response.token
+    }.onFailure { e ->
+        FileLogger.e("Repo", "qrRedeem fail ${e.javaClass.simpleName}: ${e.message}", e)
         handleError(e)
     }
 
