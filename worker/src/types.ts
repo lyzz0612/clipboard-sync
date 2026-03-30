@@ -1,13 +1,14 @@
 export interface Env {
-  KV: KVNamespace;
+  DB: D1Database;
   JWT_SECRET: string;
   ADMIN_PASSWORD?: string;
 }
 
 export interface UserRecord {
   id: string;
+  username: string;
   salt: string;
-  hash: string;
+  passwordHash: string;
 }
 
 export interface ClipItem {

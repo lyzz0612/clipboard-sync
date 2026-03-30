@@ -35,7 +35,7 @@
 - 电脑端无需安装软件：浏览器打开 Worker 地址就能登录和查看剪贴板
 - 可选同步而不是无差别自动同步：更适合密码片段、临时验证码、代码片段、短文本等“只想挑着同步”的内容
 - 手机端为主、电脑端为辅：手机负责日常同步，电脑端只承担访问与取用
-- 可自部署：后端基于 Cloudflare Worker + KV，部署轻，维护成本低
+- 可自部署：后端基于 Cloudflare Worker + D1，部署轻，维护成本低
 - 支持账号密码与二维码配对：网页登录后可生成一次性二维码，方便 App 扫码登录
 
 ## 适合什么场景
@@ -105,10 +105,17 @@
 | ----------------------- | ---------------------------------------------------------------------------------------------- | ------------------------------ |
 | `CLOUDFLARE_ACCOUNT_ID` | Cloudflare Dashboard 右侧栏的 **Account ID**                                                       | 让 Action 知道部署到哪个 Cloudflare 账户 |
 | `CLOUDFLARE_API_TOKEN`  | Cloudflare Dashboard -> My Profile -> API Tokens -> 创建基于 **Edit Cloudflare Workers** 模板的 Token | 让 Action 有权限发布 Worker          |
-| `KV_NAMESPACE_ID`       | Cloudflare Dashboard -> Workers 和 Pages -> KV -> 创建命名空间后复制 **Namespace ID**                    | 给 Worker 绑定剪贴板存储               |
+| `D1_DATABASE_ID`        | Cloudflare Dashboard -> Workers 和 Pages -> D1 -> 打开数据库后复制 **Database ID**                       | 给 Worker 绑定 D1 数据库             |
 
 
-建议先在 Cloudflare 创建一个 KV 命名空间，例如 `CLIPBOARD_KV`，然后记录它的 `Namespace ID`。
+建议先在 Cloudflare 创建一个 D1 数据库，例如 `clipboard-sync`：
+
+```bash
+cd worker
+npx wrangler d1 create clipboard-sync
+```
+
+创建成功后，把返回结果中的 `database_id` 记录下来，用作 `D1_DATABASE_ID`。
 
 接着到你 Fork 后的 GitHub 仓库中，打开 `Settings -> Secrets and variables -> Actions`，创建上面这 3 个 Secrets。
 
@@ -129,6 +136,8 @@ git push origin v1.0.0
 4. 选择要部署的分支 / 提交对应分支后执行
 
 部署成功后，你会拿到一个可访问的网址，通常是 Cloudflare 分配的 `workers.dev` 地址；
+
+`Deploy Worker` 工作流会在部署前自动执行 D1 migrations，所以后续 schema 变更也会跟着部署一起生效。
 
 最后还要去 Cloudflare 后台补上运行时密钥 `JWT_SECRET` 与 `ADMIN_PASSWORD`：
 
@@ -375,6 +384,7 @@ Android 端登录完成后，建议优先完成权限设置，否则只能手动
   - 也支持 `workflow_dispatch` 手动触发
   - 也支持被 `Publish Release` 以 `workflow_call` 方式调用
   - 将当前标签指向的代码部署为 Worker
+  - 会在部署前自动执行 D1 migrations
   - 部署成功后会把对应版本的 `worker` 代码打成 zip 并上传到 Actions Artifacts
   - 不会直接创建或更新 GitHub Release
 - `.github/workflows/build-android.yml`

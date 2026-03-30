@@ -27,10 +27,10 @@ npm run dev
 - `JWT_SECRET`
 - `ADMIN_PASSWORD`（用于 `admin.html` 和 `/api/admin/*` 管理接口）
 
-## KV 存储
+## D1 存储
 
-- **本地开发**：使用 Miniflare 模拟 KV，无需在云端创建命名空间。  
-- **远程 KV**：可使用 `wrangler dev --remote`（会连接真实 KV，**可能读写生产数据**，请谨慎）。
+- **本地开发**：使用 Miniflare 模拟 D1，无需先创建云端数据库。  
+- **远程 D1**：可使用 `wrangler dev --remote`（会连接真实 Cloudflare 资源，**可能读写生产数据**，请谨慎）。
 
 ## 冒烟测试
 
@@ -46,15 +46,31 @@ npm test
 npm run deploy
 ```
 
-或通过 GitHub Actions 部署。需要配置 `CLOUDFLARE_API_TOKEN`，并在 `wrangler.toml` 中配置 KV 命名空间 ID。
+或通过 GitHub Actions 部署。需要配置 `CLOUDFLARE_API_TOKEN`，并提供 `D1_DATABASE_ID`。
 
-## 首次 KV 配置
+如果你在本地直接部署，需要先设置环境变量 `D1_DATABASE_ID`，例如：
 
-```bash
-npx wrangler kv:namespace create CLIPBOARD_KV
+```powershell
+$env:D1_DATABASE_ID="your-d1-database-id"
+npm run deploy
 ```
 
-将返回的命名空间 ID 写入 `wrangler.toml`。
+## 首次 D1 配置
+
+```bash
+npx wrangler d1 create clipboard-sync
+```
+
+创建后可执行：
+
+```bash
+npm run db:migrate:remote
+```
+
+将返回的 `database_id` 配置到：
+
+- GitHub Actions Secret：`D1_DATABASE_ID`
+- 或本地 shell 环境变量：`D1_DATABASE_ID`
 
 ## 生产日志
 

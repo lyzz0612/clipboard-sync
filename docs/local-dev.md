@@ -36,10 +36,10 @@ npm run dev
 - `JWT_SECRET`
 - `ADMIN_PASSWORD`
 
-### KV 行为
+### D1 行为
 
-- 本地开发默认使用 Miniflare 模拟 KV，不需要先创建云端命名空间
-- 如果使用 `wrangler dev --remote`，会连接真实 Cloudflare KV，可能读写生产数据，请谨慎
+- 本地开发默认使用 Miniflare 模拟 D1，不需要先创建云端数据库
+- 如果使用 `wrangler dev --remote`，会连接真实 Cloudflare 资源，可能读写生产数据，请谨慎
 
 ### 冒烟测试
 
@@ -57,6 +57,12 @@ npm test
 
 ```bash
 npm run deploy
+```
+
+远程应用 migrations：
+
+```bash
+npm run db:migrate:remote
 ```
 
 查看生产日志：

@@ -7,16 +7,36 @@ const CORS_HEADERS: Record<string, string> = {
   'Access-Control-Allow-Headers': 'Content-Type, Authorization',
 };
 
-/** KV 中每个用户最多保留的剪贴条数（新插入在前，超出则丢弃最旧的） */
+/** D1 中每个用户最多保留的剪贴条数（新插入在前，超出则丢弃最旧的） */
 const MAX_CLIPS_PER_USER = 10;
 
-/** 扫码登录一次性码：KV 存活时间（秒），仅存储 userId/username，不含密码 */
+/** 扫码登录一次性码：D1 中的有效时间（秒），仅存储 userId/username，不含密码 */
 const QR_LOGIN_TTL_SEC = 300;
 
-const SETTINGS_KEY = 'SYS:SETTINGS';
-const USER_KEY_PREFIX = 'USER:';
-const CLIPS_KEY_PREFIX = 'CLIPS:';
 const MAX_ADMIN_DELETE_USERS = 100;
+
+type SettingsRow = {
+  allow_registration: number;
+};
+
+type UserRow = {
+  id: string;
+  username: string;
+  salt: string;
+  password_hash: string;
+};
+
+type ClipRow = {
+  id: string;
+  text: string;
+  created_at: string;
+};
+
+type QrLoginRow = {
+  user_id: string;
+  username: string;
+  expires_at: string;
+};
 
 function json(data: unknown, status = 200): Response {
   return new Response(JSON.stringify(data), {
@@ -37,20 +57,49 @@ async function readJsonBody<T>(request: Request): Promise<T> {
   return (await request.json()) as T;
 }
 
+async function queryFirst<T>(statement: D1PreparedStatement): Promise<T | null> {
+  return (await statement.first<T>()) ?? null;
+}
+
+async function queryAll<T>(statement: D1PreparedStatement): Promise<T[]> {
+  const result = await statement.all<T>();
+  return result.results ?? [];
+}
+
+function toClipItem(row: ClipRow): ClipItem {
+  return {
+    id: row.id,
+    text: row.text,
+    createdAt: row.created_at,
+  };
+}
+
+function nowIso(): string {
+  return new Date().toISOString();
+}
+
 async function getSettings(env: Env): Promise<AppSettings> {
-  const raw = await env.KV.get(SETTINGS_KEY);
-  if (!raw) {
+  const row = await queryFirst<SettingsRow>(
+    env.DB.prepare('SELECT allow_registration FROM app_settings WHERE id = 1'),
+  );
+  if (!row) {
     return { allowRegistration: true };
   }
-
-  const parsed = JSON.parse(raw) as Partial<AppSettings>;
   return {
-    allowRegistration: parsed.allowRegistration !== false,
+    allowRegistration: row.allow_registration !== 0,
   };
 }
 
 async function saveSettings(env: Env, settings: AppSettings): Promise<void> {
-  await env.KV.put(SETTINGS_KEY, JSON.stringify(settings));
+  await env.DB.prepare(
+    `
+      INSERT INTO app_settings (id, allow_registration)
+      VALUES (1, ?1)
+      ON CONFLICT(id) DO UPDATE SET allow_registration = excluded.allow_registration
+    `,
+  )
+    .bind(settings.allowRegistration ? 1 : 0)
+    .run();
 }
 
 async function authenticateToken(request: Request, env: Env): Promise<JwtPayload | Response> {
@@ -104,15 +153,23 @@ async function handleRegister(request: Request, env: Env): Promise<Response> {
     return errorResponse('username and password are required', 400);
   }
 
-  const existing = await env.KV.get(`${USER_KEY_PREFIX}${username}`);
+  const existing = await queryFirst<Pick<UserRow, 'id'>>(
+    env.DB.prepare('SELECT id FROM users WHERE username = ?1').bind(username),
+  );
   if (existing) {
     return errorResponse('Username already taken', 409);
   }
 
   const { salt, hash } = await hashPassword(password);
   const id = crypto.randomUUID();
-  const record: UserRecord = { id, salt, hash };
-  await env.KV.put(`${USER_KEY_PREFIX}${username}`, JSON.stringify(record));
+  await env.DB.prepare(
+    `
+      INSERT INTO users (id, username, salt, password_hash, created_at)
+      VALUES (?1, ?2, ?3, ?4, ?5)
+    `,
+  )
+    .bind(id, username, salt, hash, nowIso())
+    .run();
 
   return json({ ok: true, message: 'registered' }, 201);
 }
@@ -141,10 +198,17 @@ async function handleQrSession(env: Env, userId: string, username: string): Prom
   const bytes = new Uint8Array(24);
   crypto.getRandomValues(bytes);
   const code = [...bytes].map((b) => b.toString(16).padStart(2, '0')).join('');
-  const key = `QRLOGIN:${code}`;
-  await env.KV.put(key, JSON.stringify({ sub: userId, username }), {
-    expirationTtl: QR_LOGIN_TTL_SEC,
-  });
+  const createdAt = nowIso();
+  const expiresAt = new Date(Date.now() + QR_LOGIN_TTL_SEC * 1000).toISOString();
+  await env.DB.batch([
+    env.DB.prepare('DELETE FROM qr_login_sessions WHERE expires_at <= ?1').bind(createdAt),
+    env.DB.prepare(
+      `
+        INSERT INTO qr_login_sessions (code, user_id, username, expires_at, created_at)
+        VALUES (?1, ?2, ?3, ?4, ?5)
+      `,
+    ).bind(code, userId, username, expiresAt, createdAt),
+  ]);
   return json({ code, expiresIn: QR_LOGIN_TTL_SEC });
 }
 
@@ -155,16 +219,26 @@ async function handleQrRedeem(request: Request, env: Env): Promise<Response> {
     return errorResponse('invalid code', 400);
   }
 
-  const key = `QRLOGIN:${rawCode}`;
-  const raw = await env.KV.get(key);
-  if (!raw) {
+  const session = await queryFirst<QrLoginRow>(
+    env.DB.prepare(
+      'SELECT user_id, username, expires_at FROM qr_login_sessions WHERE code = ?1',
+    ).bind(rawCode),
+  );
+  if (!session) {
     return errorResponse('invalid or expired code', 401);
   }
 
-  await env.KV.delete(key);
-  const { sub, username } = JSON.parse(raw) as { sub: string; username: string };
-  const token = await signJwt({ sub, username, role: 'user' }, env.JWT_SECRET);
-  return json({ token, username });
+  const currentTime = nowIso();
+  await env.DB.prepare('DELETE FROM qr_login_sessions WHERE code = ?1').bind(rawCode).run();
+  if (session.expires_at <= currentTime) {
+    return errorResponse('invalid or expired code', 401);
+  }
+
+  const token = await signJwt(
+    { sub: session.user_id, username: session.username, role: 'user' },
+    env.JWT_SECRET,
+  );
+  return json({ token, username: session.username });
 }
 
 async function handleLogin(request: Request, env: Env): Promise<Response> {
@@ -175,13 +249,16 @@ async function handleLogin(request: Request, env: Env): Promise<Response> {
     return errorResponse('username and password are required', 400);
   }
 
-  const raw = await env.KV.get(`${USER_KEY_PREFIX}${username}`);
-  if (!raw) {
+  const user = await queryFirst<UserRow>(
+    env.DB.prepare(
+      'SELECT id, username, salt, password_hash FROM users WHERE username = ?1',
+    ).bind(username),
+  );
+  if (!user) {
     return errorResponse('Invalid username or password', 401);
   }
 
-  const user = JSON.parse(raw) as UserRecord;
-  const valid = await verifyPassword(password, user.salt, user.hash);
+  const valid = await verifyPassword(password, user.salt, user.password_hash);
   if (!valid) {
     return errorResponse('Invalid username or password', 401);
   }
@@ -195,9 +272,18 @@ async function handleMe(userId: string, username: string): Promise<Response> {
 }
 
 async function handleGetClips(env: Env, userId: string): Promise<Response> {
-  const raw = await env.KV.get(`${CLIPS_KEY_PREFIX}${userId}`);
-  const clips: ClipItem[] = raw ? JSON.parse(raw) : [];
-  return json({ clips: clips.slice(0, MAX_CLIPS_PER_USER) });
+  const rows = await queryAll<ClipRow>(
+    env.DB.prepare(
+      `
+        SELECT id, text, created_at
+        FROM clips
+        WHERE user_id = ?1
+        ORDER BY created_at DESC, id DESC
+        LIMIT ?2
+      `,
+    ).bind(userId, MAX_CLIPS_PER_USER),
+  );
+  return json({ clips: rows.map(toClipItem) });
 }
 
 async function handleGetClipsDelta(
@@ -207,11 +293,27 @@ async function handleGetClipsDelta(
 ): Promise<Response> {
   const url = new URL(request.url);
   const since = url.searchParams.get('since') ?? '';
-  const raw = await env.KV.get(`${CLIPS_KEY_PREFIX}${userId}`);
-  const clips: ClipItem[] = raw ? JSON.parse(raw) : [];
-  const newest = clips.slice(0, MAX_CLIPS_PER_USER);
-  const filtered = since ? newest.filter((clip) => clip.createdAt > since) : newest;
-  return json({ clips: filtered, serverTime: new Date().toISOString() });
+  const statement = since
+    ? env.DB.prepare(
+        `
+          SELECT id, text, created_at
+          FROM clips
+          WHERE user_id = ?1 AND created_at > ?2
+          ORDER BY created_at DESC, id DESC
+          LIMIT ?3
+        `,
+      ).bind(userId, since, MAX_CLIPS_PER_USER)
+    : env.DB.prepare(
+        `
+          SELECT id, text, created_at
+          FROM clips
+          WHERE user_id = ?1
+          ORDER BY created_at DESC, id DESC
+          LIMIT ?2
+        `,
+      ).bind(userId, MAX_CLIPS_PER_USER);
+  const rows = await queryAll<ClipRow>(statement);
+  return json({ clips: rows.map(toClipItem), serverTime: nowIso() });
 }
 
 async function handlePostClip(
@@ -227,14 +329,30 @@ async function handlePostClip(
   const clip: ClipItem = {
     id: crypto.randomUUID(),
     text: body.text,
-    createdAt: new Date().toISOString(),
+    createdAt: nowIso(),
   };
 
-  const raw = await env.KV.get(`${CLIPS_KEY_PREFIX}${userId}`);
-  const clips: ClipItem[] = raw ? JSON.parse(raw) : [];
-  clips.unshift(clip);
-  if (clips.length > MAX_CLIPS_PER_USER) clips.length = MAX_CLIPS_PER_USER;
-  await env.KV.put(`${CLIPS_KEY_PREFIX}${userId}`, JSON.stringify(clips));
+  await env.DB.batch([
+    env.DB.prepare(
+      `
+        INSERT INTO clips (id, user_id, text, created_at)
+        VALUES (?1, ?2, ?3, ?4)
+      `,
+    ).bind(clip.id, userId, clip.text, clip.createdAt),
+    env.DB.prepare(
+      `
+        DELETE FROM clips
+        WHERE user_id = ?1
+          AND id NOT IN (
+            SELECT id
+            FROM clips
+            WHERE user_id = ?2
+            ORDER BY created_at DESC, id DESC
+            LIMIT ?3
+          )
+      `,
+    ).bind(userId, userId, MAX_CLIPS_PER_USER),
+  ]);
 
   return json({ clip }, 201);
 }
@@ -244,49 +362,27 @@ async function handleDeleteClip(
   userId: string,
   clipId: string,
 ): Promise<Response> {
-  const raw = await env.KV.get(`${CLIPS_KEY_PREFIX}${userId}`);
-  const clips: ClipItem[] = raw ? JSON.parse(raw) : [];
-  const index = clips.findIndex((clip) => clip.id === clipId);
-  if (index === -1) {
+  const result = await env.DB.prepare(
+    'DELETE FROM clips WHERE user_id = ?1 AND id = ?2',
+  )
+    .bind(userId, clipId)
+    .run();
+  if ((result.meta.changes ?? 0) < 1) {
     return errorResponse('Clip not found', 404);
   }
-
-  clips.splice(index, 1);
-  await env.KV.put(`${CLIPS_KEY_PREFIX}${userId}`, JSON.stringify(clips));
   return json({ ok: true });
 }
 
-async function listAllUserKeys(env: Env): Promise<string[]> {
-  const keys: string[] = [];
-  let cursor: string | undefined;
-
-  do {
-    const page = await env.KV.list({ prefix: USER_KEY_PREFIX, cursor });
-    keys.push(...page.keys.map((entry) => entry.name));
-    cursor = page.list_complete ? undefined : page.cursor;
-  } while (cursor);
-
-  return keys;
-}
-
 async function handleAdminListUsers(env: Env): Promise<Response> {
-  const keys = await listAllUserKeys(env);
-  const users = (
-    await Promise.all(
-      keys.map(async (keyName) => {
-        const raw = await env.KV.get(keyName);
-        if (!raw) return null;
-        const record = JSON.parse(raw) as UserRecord;
-        return {
-          id: record.id,
-          username: keyName.slice(USER_KEY_PREFIX.length),
-        };
-      }),
-    )
-  )
-    .filter((user): user is { id: string; username: string } => Boolean(user))
-    .sort((left, right) => left.username.localeCompare(right.username));
-
+  const users = await queryAll<Pick<UserRecord, 'id'> & { username: string }>(
+    env.DB.prepare(
+      `
+        SELECT id, username
+        FROM users
+        ORDER BY username COLLATE NOCASE ASC, id ASC
+      `,
+    ),
+  );
   return json({ users });
 }
 
@@ -305,20 +401,30 @@ async function handleAdminDeleteUsers(request: Request, env: Env): Promise<Respo
     return errorResponse(`Cannot delete more than ${MAX_ADMIN_DELETE_USERS} users at once`, 400);
   }
 
-  const deleted: Array<{ id: string; username: string }> = [];
-  const notFound: string[] = [];
+  const usernamePlaceholders = usernames.map((_, index) => `?${index + 1}`).join(', ');
+  const deleted = await queryAll<Pick<UserRecord, 'id'> & { username: string }>(
+    env.DB.prepare(
+      `
+        SELECT id, username
+        FROM users
+        WHERE username IN (${usernamePlaceholders})
+        ORDER BY username COLLATE NOCASE ASC, id ASC
+      `,
+    ).bind(...usernames),
+  );
+  const deletedSet = new Set(deleted.map((user) => user.username));
+  const notFound = usernames.filter((username) => !deletedSet.has(username));
 
-  for (const username of usernames) {
-    const userKey = `${USER_KEY_PREFIX}${username}`;
-    const raw = await env.KV.get(userKey);
-    if (!raw) {
-      notFound.push(username);
-      continue;
-    }
-
-    const record = JSON.parse(raw) as UserRecord;
-    await Promise.all([env.KV.delete(userKey), env.KV.delete(`${CLIPS_KEY_PREFIX}${record.id}`)]);
-    deleted.push({ id: record.id, username });
+  if (deleted.length > 0) {
+    const userIds = deleted.map((user) => user.id);
+    const userIdPlaceholders = userIds.map((_, index) => `?${index + 1}`).join(', ');
+    await env.DB.batch([
+      env.DB.prepare(`DELETE FROM qr_login_sessions WHERE user_id IN (${userIdPlaceholders})`).bind(
+        ...userIds,
+      ),
+      env.DB.prepare(`DELETE FROM clips WHERE user_id IN (${userIdPlaceholders})`).bind(...userIds),
+      env.DB.prepare(`DELETE FROM users WHERE id IN (${userIdPlaceholders})`).bind(...userIds),
+    ]);
   }
 
   return json({ ok: true, deleted, notFound });
