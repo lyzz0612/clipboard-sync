@@ -62,7 +62,7 @@ jobs:
           git commit -m "docs(changelog): update for ${VERSION_TAG}"
           git push origin "HEAD:${DEFAULT_BRANCH}"
 
-      - name: Download Android zip artifact
+      - name: Download Android APK artifact
         uses: actions/download-artifact@v4
         with:
           name: android-release-${{ github.ref_name }}
@@ -82,5 +82,5 @@ jobs:
           name: clipboard-sync ${{ github.ref_name }}
           body_path: RELEASE_NOTES.md
           files: |
-            release-assets/android/*.zip
+            release-assets/android/*.apk
             release-assets/worker/*.zip

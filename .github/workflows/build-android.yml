@@ -40,7 +40,7 @@ jobs:
           version_tag="${{ inputs.version_tag }}"
           echo "VERSION_TAG=${version_tag}" >> "$GITHUB_ENV"
           echo "VERSION_NAME=${version_tag#v}" >> "$GITHUB_ENV"
-          echo "ANDROID_ARCHIVE=$RUNNER_TEMP/android-${version_tag}.zip" >> "$GITHUB_ENV"
+          echo "ANDROID_APK=$RUNNER_TEMP/clipboard-sync-${version_tag#v}.apk" >> "$GITHUB_ENV"
 
       - name: Decode Android signing keystore
         shell: bash
@@ -66,17 +66,15 @@ jobs:
           ANDROID_KEY_PASSWORD: ${{ secrets.ANDROID_KEY_PASSWORD }}
         run: |
           chmod +x gradlew
-          ./gradlew clean assembleRelease bundleRelease --no-daemon
+          ./gradlew clean assembleRelease --no-daemon
 
-      - name: Package Android artifacts
+      - name: Rename Android APK
         shell: bash
         run: |
-          zip -j "$ANDROID_ARCHIVE" \
-            android/app/build/outputs/apk/release/*.apk \
-            android/app/build/outputs/bundle/release/*.aab
+          cp android/app/build/outputs/apk/release/*.apk "$ANDROID_APK"
 
       - uses: actions/upload-artifact@v4
         with:
           name: android-release-${{ env.VERSION_TAG }}
-          path: ${{ env.ANDROID_ARCHIVE }}
+          path: ${{ env.ANDROID_APK }}
           retention-days: 30
