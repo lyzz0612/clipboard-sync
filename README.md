@@ -1,77 +1,355 @@
-# Clipboard Sync — 剪贴板跨端共享
+# Clipboard Sync
 
-跨设备剪贴板共享：基于 Cloudflare Worker 与 Android 应用。
+一个偏个人化、可自部署的跨端剪贴板方案：手机端负责同步，电脑端直接打开网页即可使用，不需要额外安装桌面软件。
 
-## 目录结构
+它的重点不是“把所有复制内容自动镜像到所有设备”，而是把你真正想跨端带走的内容放进一个可查看、可筛选、可删除的剪贴板列表里。
 
-| 目录 | 说明 |
-|------|------|
-| `worker/` | Cloudflare Worker 后端 |
+## 为什么做这个
+
+市面上已经有不少“跨端剪贴板”能力，比如微信输入法、以及小米等手机厂商提供的跨端协同方案。但这些方案通常更适合已经深度绑定某个输入法生态或某个品牌设备生态的用户。
+
+这个项目更适合下面这类需求：
+
+- 电脑端不想安装任何客户端，只想打开浏览器就能取内容
+- 不希望“复制即同步”，而是更偏向只同步自己选中的内容
+- 设备是混搭的，不想被某个输入法或手机厂商生态绑定
+- 想自己掌握后端和数据，而不是完全依赖第三方平台服务
+
+## 和常见方案的对比
+
+> 以下对比基于常见使用体验，侧重说明这个项目的定位差异，不是对竞品能力做完整评测。
+
+
+| 维度    | 本项目                        | 微信输入法等输入法方案                          | 小米等手机厂商跨端方案             |
+| ----- | -------------------------- | ------------------------------------ | ----------------------- |
+| 电脑端接入 | 直接打开网页即可使用，无需安装桌面端软件       | 通常需要安装对应输入法或桌面客户端，并登录账号              | 通常依赖品牌电脑管家、系统服务或品牌生态组件  |
+| 安卓端接入 | 需要安装 Android App           | 通常需要安装对应输入法 App，部分能力还依赖输入法本身成为主要输入工具 | 通常需要品牌手机自带系统能力或品牌配套 App |
+| 同步策略  | 更强调“可选同步内容”，不是默认全量自动同步     | 更偏输入法场景联动，体验上通常更自动化                  | 更偏系统级联动，常见体验是自动同步/自动接力  |
+| 平台绑定  | 弱绑定，可自部署后端                 | 绑定输入法账号体系                            | 强绑定品牌设备生态               |
+| 数据控制  | 后端可自行部署在 Cloudflare Worker | 主要使用平台提供的服务                          | 主要使用厂商云与系统能力            |
+| 适合场景  | 任意电脑临时登录、混搭设备、想保留选择权       | 已长期使用对应输入法生态                         | 手机和电脑都在同一品牌生态内          |
+
+
+## 核心优势
+
+- 电脑端无需安装软件：浏览器打开 Worker 地址就能登录和查看剪贴板
+- 可选同步而不是无差别自动同步：更适合密码片段、临时验证码、代码片段、短文本等“只想挑着同步”的内容
+- 手机端为主、电脑端为辅：手机负责日常同步，电脑端只承担访问与取用
+- 可自部署：后端基于 Cloudflare Worker + KV，部署轻，维护成本低
+- 支持账号密码与二维码配对：网页登录后可生成一次性二维码，方便 App 扫码登录
+
+## 适合什么场景
+
+- 在公司、网吧、他人电脑或临时环境里，只想通过浏览器拿到手机上的一段文本
+- 设备品牌混搭，不想为了跨端剪贴板强行统一生态
+- 希望跨端内容是“可见的列表”，而不是后台静默覆盖系统剪贴板
+- 想自己部署一个轻量的跨端文本中转服务
+
+## 当前能力
+
+### Web 端
+
+- 账号注册、登录
+- 查看云端剪贴板列表
+- 新增、复制、删除剪贴板内容
+- 生成二维码供 App 扫码登录
+
+### Android 端
+
+- 账号密码登录或扫码登录
+- 拉取云端剪贴板列表
+- 手动新增剪贴内容
+- 配合无障碍与后台能力，在部分场景下自动把最新内容同步到系统剪贴板
+
+### iOS 端
+
+- 当前不支持 `iOS`
+- 仓库内暂无 `iOS` 客户端，也没有针对 `iPhone` / `iPad` 的适配实现
+- 如果后续要支持，通常需要单独实现 `iOS` 客户端，并重新评估系统对后台同步、剪贴板访问和自动化触发的限制
+
+## 工作方式
+
+1. 部署自己的 Cloudflare Worker 服务
+2. 手机 App 登录同一账号
+3. 需要跨端时，把目标内容加入云端剪贴板列表
+4. 电脑上直接打开浏览器访问 Worker 地址
+5. 登录后查看、复制、删除需要的内容
+
+这里的核心区别是：电脑端是网页入口，不是桌面客户端；同步对象是列表中的内容，不是默认接管整机所有复制行为。
+
+## 仓库结构
+
+
+| 路径         | 说明                            |
+| ---------- | ----------------------------- |
+| `worker/`  | Cloudflare Worker 后端与 Web 页面  |
 | `android/` | Android 客户端（Kotlin / Compose） |
-| `docs/` | 项目文档 |
-
-## GitHub Actions Workflows
-
-Workflow 定义在仓库的 `.github/workflows/` 下，在 **`master`** 分支上推送对应路径变更时触发；也可在 Actions 里用 `workflow_dispatch` 手动运行。检出代码为**触发本次运行**的提交（默认行为）。
-
-### Deploy Worker（部署 Cloudflare Worker）
-
-- **文件**：`.github/workflows/deploy-worker.yml`
-- **触发条件**：
-  - 推送到 `master`，且 `worker/**` 有变更
-  - 在 Actions 页面手动触发（`workflow_dispatch`）
-- **作用**：将 `worker/` 部署为 Cloudflare Worker
-
-### Build Android（构建 Android APK）
-
-- **文件**：`.github/workflows/build-android.yml`
-- **触发条件**：
-  - 推送到 `master`，且 `android/**` 有变更
-  - 在 Actions 页面手动触发（`workflow_dispatch`）
-- **作用**：构建 debug APK 并上传到 Actions Artifacts（保留 30 天）
-
-### 配置步骤
-
-使用 Workflow 前，需要在 GitHub 仓库中配置以下 Secrets（Settings → Secrets and variables → Actions）：
-
-| Secret 名称 | 用途 | 获取方式 |
-|-------------|------|---------|
-| `CLOUDFLARE_API_TOKEN` | Wrangler 部署 Worker 的认证令牌 | [Cloudflare Dashboard → API Tokens](https://dash.cloudflare.com/profile/api-tokens)，创建 Token 时选择 "Edit Cloudflare Workers" 模板 |
-| `CLOUDFLARE_ACCOUNT_ID` | Cloudflare 账户 ID | Cloudflare Dashboard 首页右侧栏，或任意 Workers 页面 URL 中的 ID |
-| `KV_NAMESPACE_ID` | KV 命名空间 ID，部署时注入 `wrangler.toml` | 在 Cloudflare 后台创建 KV 命名空间后复制 ID（见下方步骤） |
-
-### 首次部署前的准备
-
-#### 1. 获取 `CLOUDFLARE_ACCOUNT_ID`
-
-登录 [Cloudflare Dashboard](https://dash.cloudflare.com/) → 左侧选择你的账户 → 右侧栏 **Account ID** 即是，复制保存。
-
-#### 2. 创建 `CLOUDFLARE_API_TOKEN`
-
-[Cloudflare Dashboard → My Profile → API Tokens](https://dash.cloudflare.com/profile/api-tokens) → **Create Token** → 选择 **Edit Cloudflare Workers** 模板 → 按需调整权限范围 → **Continue to summary** → **Create Token** → 复制保存（只显示一次）。
-
-#### 3. 创建 KV 命名空间，获取 `KV_NAMESPACE_ID`
-
-[Cloudflare Dashboard](https://dash.cloudflare.com/) → 左侧菜单 **Workers 和 Pages** → **KV** → **Create a namespace** → 名称填 `CLIPBOARD_KV`（或任意名称） → **Add** → 创建完成后，在列表中点击该命名空间 → 页面 URL 或详情中可以看到 **Namespace ID**，复制保存。
-
-#### 4. 设置 Worker 运行时密钥 `JWT_SECRET`
-
-首次部署成功后，在 Cloudflare Dashboard → **Workers 和 Pages** → 点击 `clipboard-sync` Worker → **Settings** → **Variables and Secrets** → **Add** → 名称填 `JWT_SECRET`，值填一个随机字符串（建议 32 位以上），类型选 **Secret** → 保存。
-
-> 也可以通过命令行 `npx wrangler secret put JWT_SECRET` 完成，效果一样。
-
-#### 5. 配置 GitHub Secrets
-
-GitHub 仓库页面 → **Settings** → **Secrets and variables** → **Actions** → **New repository secret**，依次添加以上三个：`CLOUDFLARE_API_TOKEN`、`CLOUDFLARE_ACCOUNT_ID`、`KV_NAMESPACE_ID`。
+| `docs/`    | 补充文档，README 中未展开的细节说明         |
 
 
-## 文档索引
+## 快速开始
 
+> 如果你不想自己部署，可以先直接使用示例站点：[https://clipboard.skyup.top/](https://clipboard.skyup.top/)
+>
+> 如果你不想自己打 Android 安装包，也可以直接下载现成版本：[https://github.com/lyzz0612/clipboard-sync/releases/latest](https://github.com/lyzz0612/clipboard-sync/releases/latest)
+
+### 1. Fork 并部署自己的 Worker
+
+先准备 Cloudflare 侧的信息，再去 Fork 仓库里配置 GitHub Actions Secrets。
+
+需要的 Secrets：
+
+
+| 名称                      | 从哪里拿                                                                                           | 用途                             |
+| ----------------------- | ---------------------------------------------------------------------------------------------- | ------------------------------ |
+| `CLOUDFLARE_ACCOUNT_ID` | Cloudflare Dashboard 右侧栏的 **Account ID**                                                       | 让 Action 知道部署到哪个 Cloudflare 账户 |
+| `CLOUDFLARE_API_TOKEN`  | Cloudflare Dashboard -> My Profile -> API Tokens -> 创建基于 **Edit Cloudflare Workers** 模板的 Token | 让 Action 有权限发布 Worker          |
+| `KV_NAMESPACE_ID`       | Cloudflare Dashboard -> Workers 和 Pages -> KV -> 创建命名空间后复制 **Namespace ID**                    | 给 Worker 绑定剪贴板存储               |
+
+
+建议先在 Cloudflare 创建一个 KV 命名空间，例如 `CLIPBOARD_KV`，然后记录它的 `Namespace ID`。
+
+接着到你 Fork 后的 GitHub 仓库中，打开 `Settings -> Secrets and variables -> Actions`，创建上面这 3 个 Secrets。
+
+然后手动运行 Worker 部署工作流：
+
+1. 打开 `Actions`
+2. 进入 `Deploy Worker`
+3. 点击 `Run workflow`
+4. 选择默认分支并执行
+
+部署成功后，你会拿到一个可访问的网址，通常是 Cloudflare 分配的 `workers.dev` 地址；
+
+最后还要去 Cloudflare 后台补上运行时密钥 `JWT_SECRET`：
+
+1. 打开 Cloudflare Dashboard
+2. 进入 `Workers 和 Pages`
+3. 打开刚部署的 `clipboard-sync` Worker
+4. 进入 `Settings -> Variables and Secrets`
+5. 新建 Secret：`JWT_SECRET`
+6. 值填写一个随机字符串，建议 32 位以上
+
+### 2. 获取 Android 安装包
+
+如果维护者已经发布过版本，可以直接从 Release 页面下载：
+
+- 上游 Release 页面：[https://github.com/lyzz0612/clipboard-sync/releases](https://github.com/lyzz0612/clipboard-sync/releases)
+
+如果你想在自己的 Fork 下生成 Android 安装包，需要使用仓库内置的 `Release Android` 工作流。
+
+先准备 Android 签名相关的 GitHub Actions Secrets：
+
+
+| 名称                          | 从哪里来                                       | 用途           |
+| --------------------------- | ------------------------------------------ | ------------ |
+| `ANDROID_KEYSTORE_BASE64`   | 把你的 `.jks` / `.keystore` 文件做 Base64 编码后的结果 | 在 CI 中恢复签名文件 |
+| `ANDROID_KEYSTORE_PASSWORD` | 你创建 keystore 时设置的密码                        | Release 签名   |
+| `ANDROID_KEY_ALIAS`         | keystore 中的 key alias                      | Release 签名   |
+| `ANDROID_KEY_PASSWORD`      | 对应 alias 的密码                               | Release 签名   |
+
+
+配置位置同样是你 Fork 仓库的 `Settings -> Secrets and variables -> Actions`。
+
+配置完成后，创建并推送版本标签，Android Release Action 会自动运行：
+
+```bash
+git tag v1.0.0
+git push origin v1.0.0
+```
+
+工作流会自动：
+
+- 构建 signed release APK 和 AAB
+- 生成 / 更新 GitHub Release
+- 生成对应版本的 `CHANGELOG.md`
+
+构建完成后，你可以在自己 Fork 仓库的 `Releases` 页面下载 APK，也可以在对应的 Actions run 里下载构建产物。
+
+### 3. 登录
+
+推荐顺序是先在电脑浏览器登录网页，再让 Android App 扫码登录。
+
+1. 在电脑浏览器打开你的 Worker 地址
+2. 首次使用时先注册账号
+3. 注册后登录网页端
+4. 打开剪贴板页面，生成二维码
+5. 在 Android App 中点击“扫码登录（网页二维码）”完成登录
+
+如果没有相机，或者当前不方便扫码，也可以在 Android App 手动填写：
+
+- 服务器地址：你的 Worker 地址，例如 `https://clipboard.skyup.top/`
+- 用户名：与网页端相同
+- 密码：与网页端相同
+
+### 4. 权限与使用
+
+Android 端登录完成后，建议优先完成权限设置，否则只能手动刷新，自动同步体验会受影响。
+
+建议按下面顺序检查，每一项都附带了“为什么需要”：
+
+- 无障碍服务
+  - 为什么需要：App 目前依赖“检测输入法弹出”这个时机，去拉取最新云端内容并尝试写入系统剪贴板。不开这个能力，App 很难在你准备粘贴前自动触发同步。
+  - 实际作用：在你切到输入框、键盘弹出时，自动同步最新剪贴板内容。
+  - 不开启会怎样：仍然可以登录、查看列表、手动刷新，但自动同步基本不会生效。
+  - 边界说明：当前无障碍服务配置为 `canRetrieveWindowContent=false`，不是拿来读取屏幕文字内容的，主要是感知窗口状态变化。
+- 相机权限
+  - 为什么需要：仅用于“扫码登录（网页二维码）”。
+  - 实际作用：让手机直接扫描网页端生成的一次性登录二维码，免去手输服务器地址、用户名和密码。
+  - 不开启会怎样：仍然可以使用手动登录，不影响核心功能。
+- 自启动
+  - 为什么需要：部分 Android ROM，尤其是 MIUI，会在重启后阻止应用自行恢复后台能力。
+  - 实际作用：设备重启后，App 更容易恢复后台同步相关逻辑。
+  - 不开启会怎样：重启手机后，可能需要你重新打开 App，后台同步才会恢复。
+- 电池优化白名单 / 省电策略无限制
+  - 为什么需要：很多系统会主动杀掉后台应用，导致同步任务和无障碍联动中断。
+  - 实际作用：尽量让 App 在后台存活，减少“刚刚还好好的，过一会儿就不同步了”的情况。
+  - 不开启会怎样：短时间内可能看起来正常，但锁屏、待机或清理后台后，自动同步经常会失效。
+
+如果你比较在意权限范围，可以这样理解：
+
+- 想先试用：至少打开网页并登录，Android 端可先手动登录和手动刷新
+- 想方便登录：额外给相机权限，用扫码登录
+- 想稳定自动同步：再开启无障碍、自启动和电池白名单
+
+推荐设置路径：
+
+- 无障碍：`设置 -> 无障碍 -> 已下载的应用 -> Clipboard Sync`
+- 自启动：`设置 -> 应用管理 -> Clipboard Sync -> 自启动`（不同 ROM 名称可能略有差异）
+- 电池优化：`设置 -> 电池 / 省电策略 -> Clipboard Sync -> 无限制`
+
+实际使用时的流程是：
+
+1. 在手机上把你想跨端带走的内容加入剪贴板列表
+2. 在电脑上直接打开网页查看、复制或删除
+3. 如果你开启了 Android 端所需权限，部分场景下 App 也会自动把最新内容同步到系统剪贴板
+
+## Android 方案选型
+
+这一版 Android 端最终推荐使用“无障碍感知输入法弹出 -> 触发增量同步 -> 写入系统剪贴板”的方案，不是因为它最优雅，而是因为它在当前目标下最接近“能用、够快、可落地”。
+
+### 为什么不直接做成传统后台剪贴板监听
+
+直觉上最自然的做法，是让 App 常驻后台，持续监听系统剪贴板变化，再自动同步。但在 Android 尤其是国内 ROM 上，这条路通常会遇到几个现实问题：
+
+- 后台进程很容易被系统杀掉，稳定性差
+- 不同 Android 版本和 ROM 对后台读取、唤醒、剪贴板访问的限制并不一致
+- 用户一旦锁屏、清理后台、开启省电策略，监听链路就很容易断
+- 为了一个“偶尔才会跨端粘贴一次”的场景长期轮询或常驻，本身就有额外耗电和后台驻留成本
+- 很多时候用户其实还没开始输入，也根本不需要实时把最新内容抢先写到本地剪贴板
+
+也就是说，“看起来最自然”的方案，往往恰恰是实际最不稳定的方案。
+
+除此之外，它在交互上也不一定更合理。
+
+例如：你刚把一段内容同步到云端，但还没真正开始输入，过了一会儿又后悔了，于是在手机里把这条新增剪贴板删掉了。  
+如果系统之前已经靠后台轮询或常驻监听，过早把那条内容写回了本地系统剪贴板，那么本地状态反而会比你“当前真正想保留的内容”更旧、更脏。
+
+这也是为什么本项目更倾向于在“你准备输入 / 粘贴”的那个时刻再触发同步，而不是默认全时抢跑。
+
+### 评估过的几种方案
+
+#### 1. 纯轮询 / WorkManager 定时同步
+
+优点：
+
+- 实现简单
+- 不需要无障碍
+- 适合作为兜底机制
+
+问题：
+
+- WorkManager 的周期任务粒度通常至少是 15 分钟级，不适合做“准备粘贴时马上同步”
+- 系统会根据省电策略延后或合并任务，实时性差
+- 用户体验更像“偶尔会同步”，而不是“要用时就同步”
+
+这个方案目前更适合作为补充，不适合承担主流程。
+
+#### 2. 常驻前台服务
+
+优点：
+
+- 理论上比普通后台任务更稳定
+- 同步可以更及时
+
+问题：
+
+- 需要长期常驻通知栏
+- 更耗电，也更打扰用户
+- 对一个“偶尔跨端带一段文本”的工具来说，运行成本偏高
+  - 很多时间其实并没有输入需求，这种“为了可能会粘贴而一直在线”的成本并不划算
+  - 如果同步发生得过早，同样可能把用户后来已经撤销或删除的云端内容提前写入本地剪贴板
+
+#### 3. 自定义输入法方案
+
+优点：
+
+- 可以在输入场景里天然触发同步
+- 某些交互上会很顺
+
+问题：
+
+- 用户必须切换到这套输入法，迁移成本高
+- 和“电脑端免安装、手机端轻接入”的目标不完全一致
+- 很容易变成“先接受这套输入法生态，才能接受这套剪贴板方案”
+
+这会把项目带偏到“做输入法”，而不是“做跨端剪贴板”。
+
+#### 4. 无障碍触发同步
+
+优点：
+
+- 能在“用户准备输入 / 粘贴”的关键时机触发
+- 比定时轮询更接近实时
+- 不需要把整个产品做成输入法
+- 相对更符合当前产品定位：只在需要时同步，而不是无差别全时监听
+
+代价：
+
+- 需要用户手动开启无障碍
+- 在权限认知上更敏感，需要把用途说明清楚
+- 仍然会受到 ROM 后台策略影响，所以通常还要配合自启动和电池白名单
+
+### 为什么最终推荐无障碍方案
+
+核心原因不是“无障碍最强”，而是它最符合这个项目当前的实际目标：
+
+- 目标不是做系统级、毫秒级、全量自动镜像的剪贴板同步
+- 目标是让用户在“准备粘贴”的那一刻，尽量拿到最新的云端内容
+- 目标是避免强绑定输入法生态，也避免电脑端安装额外软件
+
+在这个前提下，无障碍方案刚好卡在一个比较现实的平衡点上：
+
+- 比轮询更及时
+- 比前台常驻更轻
+- 比自定义输入法更低门槛
+- 比纯后台监听在真实 Android / MIUI 环境里更可控
+
+所以目前的建议是：
+
+- 手动刷新和列表浏览，作为基础能力
+- WorkManager 轮询，作为弱兜底
+- 无障碍触发同步，作为主要推荐方案
+
+如果后续 Android 平台能力、ROM 行为，或者项目定位发生变化，也不排除再调整这条实现路线。
+
+本地开发、Android 联调、`.dev.vars` 配置等内容已移到 [本地开发文档](docs/local-dev.md)。
+
+## GitHub Actions
+
+仓库内已提供两条工作流：
+
+- `.github/workflows/deploy-worker.yml`
+  - `master` 分支下 `worker/**` 变更时自动部署 Worker
+  - 也支持 `workflow_dispatch` 手动触发
+- `.github/workflows/build-android.yml`
+  - 仅在推送版本标签时触发，例如 `v1.0.0`
+  - 构建已签名的 Android release APK 与 AAB
+  - 自动创建 / 更新对应 GitHub Release
+  - 自动生成 `CHANGELOG.md`，并提交回默认分支
+  - 构建产物与 `CHANGELOG.md` 会同时上传到 GitHub Actions Artifacts
+
+## 进阶文档
+
+- [本地开发](docs/local-dev.md)
 - [HTTP API 契约](docs/api.md)
-- [部署说明](docs/deploy.md)
-- [Worker 开发指南](worker/README.md)
-- [Android 开发指南](android/README.md)
 
-## 部署
-
-向 `master` 推送时，若变更落在 `worker/**` 会部署 Worker，落在 `android/**` 会构建 debug APK；也可在 Actions 中通过 `workflow_dispatch` 手动触发。详细步骤与密钥配置见上文「GitHub Actions Workflows」与 [docs/deploy.md](docs/deploy.md)。

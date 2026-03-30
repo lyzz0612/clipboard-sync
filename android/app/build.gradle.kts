@@ -5,6 +5,36 @@ plugins {
     id("org.jetbrains.kotlin.plugin.serialization")
 }
 
+fun envOrProperty(name: String): String? {
+    return providers.gradleProperty(name).orNull ?: System.getenv(name)
+}
+
+fun versionCodeFrom(versionName: String): Int {
+    val match = Regex("""^v?(\d+)\.(\d+)\.(\d+)$""").matchEntire(versionName) ?: return 1
+    val (major, minor, patch) = match.destructured
+    return (major.toInt() * 1_000_000) + (minor.toInt() * 1_000) + patch.toInt()
+}
+
+val releaseVersionName = envOrProperty("VERSION_NAME") ?: "1.0.0"
+val requireReleaseSigning = (envOrProperty("CI_RELEASE") ?: "false").toBoolean()
+val signingKeystorePath = envOrProperty("ANDROID_KEYSTORE_PATH")
+val signingKeystorePassword = envOrProperty("ANDROID_KEYSTORE_PASSWORD")
+val signingKeyAlias = envOrProperty("ANDROID_KEY_ALIAS")
+val signingKeyPassword = envOrProperty("ANDROID_KEY_PASSWORD")
+val hasReleaseSigning =
+    !signingKeystorePath.isNullOrBlank() &&
+        !signingKeystorePassword.isNullOrBlank() &&
+        !signingKeyAlias.isNullOrBlank() &&
+        !signingKeyPassword.isNullOrBlank()
+
+if (requireReleaseSigning && !hasReleaseSigning) {
+    error(
+        "Release signing is required but Android signing secrets are incomplete. " +
+            "Please provide ANDROID_KEYSTORE_PATH, ANDROID_KEYSTORE_PASSWORD, " +
+            "ANDROID_KEY_ALIAS, and ANDROID_KEY_PASSWORD."
+    )
+}
+
 android {
     namespace = "com.clipboardsync.app"
     compileSdk = 35
@@ -13,14 +43,28 @@ android {
         applicationId = "com.clipboardsync.app"
         minSdk = 26
         targetSdk = 35
-        versionCode = 1
-        versionName = "1.0.0"
+        versionCode = versionCodeFrom(releaseVersionName)
+        versionName = releaseVersionName
+    }
+
+    signingConfigs {
+        if (hasReleaseSigning) {
+            create("release") {
+                storeFile = file(signingKeystorePath!!)
+                storePassword = signingKeystorePassword
+                keyAlias = signingKeyAlias
+                keyPassword = signingKeyPassword
+            }
+        }
     }
 
     buildTypes {
         release {
             isMinifyEnabled = true
             proguardFiles(getDefaultProguardFile("proguard-android-optimize.txt"), "proguard-rules.pro")
+            if (hasReleaseSigning) {
+                signingConfig = signingConfigs.getByName("release")
+            }
         }
     }
 

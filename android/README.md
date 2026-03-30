@@ -13,6 +13,22 @@
 ./gradlew assembleDebug
 ```
 
+发布构建会读取以下环境变量或 Gradle 属性：
+
+- `VERSION_NAME`
+- `ANDROID_KEYSTORE_PATH`
+- `ANDROID_KEYSTORE_PASSWORD`
+- `ANDROID_KEY_ALIAS`
+- `ANDROID_KEY_PASSWORD`
+
+例如：
+
+```bash
+VERSION_NAME=1.0.0 ./gradlew assembleRelease
+```
+
+在 GitHub Actions 中，版本号来自推送的 tag（如 `v1.0.0`），签名文件会通过 Secrets 注入，避免将密钥明文提交到仓库。
+
 ## 开发服务器连接
 
 调试时将 API Base URL 设为 `http://<开发机局域网 IP>:8787`。  
@@ -38,4 +54,4 @@
 
 ## 当前状态
 
-实现与工程结构将在后续迭代中补充。
+Android 工程已可通过 GitHub Actions 在版本 tag 创建时自动构建 signed release APK / AAB，并同步生成 `CHANGELOG.md`。
