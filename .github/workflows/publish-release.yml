@@ -65,7 +65,7 @@ jobs:
       - name: Download Android APK artifact
         uses: actions/download-artifact@v4
         with:
-          name: android-release-${{ github.ref_name }}
+          name: android-build-${{ github.ref_name }}-release
           path: release-assets/android
 
       - name: Download Worker zip artifact

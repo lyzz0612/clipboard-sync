@@ -54,11 +54,11 @@ VERSION_NAME=1.0.0 ./gradlew assembleRelease
 
 ## 当前状态
 
-Android 工程已可通过 GitHub Actions 作为发布流程中的一个内部步骤，被 `Publish Release` 工作流调用来构建 signed release APK，并以带版本号的文件名上传到 Actions Artifacts。
+Android 工程已可通过 GitHub Actions 作为发布流程中的一个内部步骤，被 `Publish Release` 工作流调用来构建正式 APK，并以带版本号的文件名上传到 Actions Artifacts。
 
-如果是 `v*` 标签触发，真正响应 tag 的是 `Publish Release` 工作流；它会先调用 Android 打包流程，再统一把 Android APK 上传到对应 GitHub Release 页面。
+如果是 `v*` 标签触发，真正响应 tag 的是 `Publish Release` 工作流；它会先调用 `Build Android` 工作流构建正式 APK，再统一把 Android APK 上传到对应 GitHub Release 页面。
 
-手动触发 Android 发布工作流时，可以在 `build_mode` 中选择 `release` 或 `debug`：
+手动触发 `Build Android` 工作流时，可以在 `build_mode` 中选择 `release` 或 `debug`：
 
 - `release`：生成签名后的正式 APK，文件名类似 `clipboard-sync-1.2.3.apk`
 - `debug`：生成调试 APK，文件名类似 `clipboard-sync-1.2.3-debug.apk`，并自动开启 `FileLogger`，把调试日志写入 `clipboard_sync_debug.log`

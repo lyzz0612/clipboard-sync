@@ -1,4 +1,4 @@
-name: Release Android
+name: Build Android
 
 on:
   workflow_dispatch:
@@ -30,7 +30,7 @@ permissions:
   contents: read
 
 concurrency:
-  group: release-android-${{ github.ref }}
+  group: build-android-${{ github.ref }}-${{ inputs.build_mode || 'release' }}
   cancel-in-progress: false
 
 jobs:
@@ -47,7 +47,7 @@ jobs:
           java-version: '17'
           cache: 'gradle'
 
-      - name: Prepare release metadata
+      - name: Prepare build metadata
         shell: bash
         run: |
           version_tag="${{ inputs.version_tag }}"
@@ -83,7 +83,7 @@ jobs:
           echo "$ANDROID_KEYSTORE_BASE64" | base64 --decode > "$keystore_path"
           echo "ANDROID_KEYSTORE_PATH=$keystore_path" >> "$GITHUB_ENV"
 
-      - name: Build signed release artifacts
+      - name: Build Android APK
         working-directory: android
         env:
           VERSION_NAME: ${{ env.VERSION_NAME }}
@@ -103,6 +103,6 @@ jobs:
 
       - uses: actions/upload-artifact@v4
         with:
-          name: android-release-${{ env.VERSION_TAG }}
+          name: android-build-${{ env.VERSION_TAG }}-${{ env.BUILD_MODE }}
           path: ${{ env.ANDROID_APK }}
           retention-days: 30

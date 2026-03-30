@@ -147,7 +147,7 @@ git push origin v1.0.0
 
 - 上游 Release 页面：[https://github.com/lyzz0612/clipboard-sync/releases](https://github.com/lyzz0612/clipboard-sync/releases)
 
-如果你想在自己的 Fork 下生成 Android 安装包，需要使用仓库内置的 `Release Android` 工作流。
+如果你想在自己的 Fork 下生成 Android 安装包，需要使用仓库内置的 `Build Android` 工作流。
 
 先准备 Android 签名相关的 GitHub Actions Secrets：
 
@@ -172,30 +172,30 @@ git push origin v1.0.0
 如果你不想先打标签，也可以手动触发：
 
 1. 打开 `Actions`
-2. 进入 `Release Android`
+2. 进入 `Build Android`
 3. 点击 `Run workflow`
 4. 填写版本号标签，例如 `v1.0.0`
 5. 选择要构建的分支后执行
 
 工作流会自动：
 
-- 构建 signed release APK 和 AAB
-- 将本次构建产物打成一个 Android zip 包
+- 按 `build_mode` 构建 `release` 或 `debug` APK
+- 按版本号重命名 APK 文件
 - 上传到对应的 Actions Artifacts
 
 构建完成后：
 
-- 无论是打 `v*` 标签还是手动触发，Android 工作流本身都只上传 zip 到对应的 Actions run artifacts
-- 如果是打 `v*` 标签，`Publish Release` 工作流会按顺序触发 Android 打包、Worker 部署，然后生成 changelog、创建 / 更新 Release，并把两个 zip 挂到对应 Release 页面
+- 无论是打 `v*` 标签还是手动触发，Android 工作流本身都只上传 APK 到对应的 Actions run artifacts
+- 如果是打 `v*` 标签，`Publish Release` 工作流会按顺序触发 Android 打包、Worker 部署，然后生成 changelog、创建 / 更新 Release，并把 Android APK 与 Worker zip 挂到对应 Release 页面
 - 如果是手动触发，只会保留在 Actions Artifacts，不会出现在 GitHub Release 页面
 
 说明：
 
-- `Release Android` 只负责构建 Android 安装包并上传 zip
+- `Build Android` 只负责构建 Android 安装包并上传 APK
 - Android 工作流不会直接创建 GitHub Release
-- 手动触发 `Release Android` 时，不会写入 `CHANGELOG.md`
+- 手动触发 `Build Android` 时，不会写入 `CHANGELOG.md`
 - `CHANGELOG.md` 与 GitHub Release 描述都由单独的 `Publish Release` 工作流在推送 `v*` 标签时生成 / 更新
-- `Publish Release` 会顺序调用 Android / Worker 两个内部 workflow，并把它们产出的 zip 统一挂到同一个 Release 页面
+- `Publish Release` 会顺序调用 Android / Worker 两个内部 workflow，并把它们产出的 APK / zip 统一挂到同一个 Release 页面
 
 ### 3. 登录
 
@@ -381,8 +381,9 @@ Android 端登录完成后，建议优先完成权限设置，否则只能手动
   - 不再直接监听 tag
   - 也支持 `workflow_dispatch` 手动触发，需填写版本标签
   - 也支持被 `Publish Release` 以 `workflow_call` 方式调用
-  - 构建已签名的 Android release APK 与 AAB
-  - 会把本次构建产物打成 zip 并上传到 Actions Artifacts
+  - 在手动触发时支持选择 `release` / `debug`
+  - 构建 Android APK，并按版本号输出文件名
+  - 会把本次构建产物作为 APK 上传到 Actions Artifacts
   - 手动触发时不会写入 `CHANGELOG.md`
 - `.github/workflows/publish-release.yml`
   - 仅在推送 `v*` 标签时触发
@@ -390,15 +391,15 @@ Android 端登录完成后，建议优先完成权限设置，否则只能手动
   - 先顺序调用 Android 打包，再调用 Worker 部署
   - 使用 `git-cliff` 生成 `CHANGELOG.md` 和 Release 描述
   - 创建或更新对应的 GitHub Release
-  - 下载 Android / Worker workflow 产出的 zip artifacts
-  - 将这两个 zip 统一上传到同一个 GitHub Release 页面
+  - 下载 Android / Worker workflow 产出的 APK / zip artifacts
+  - 将这两个产物统一上传到同一个 GitHub Release 页面
   - 将更新后的 `CHANGELOG.md` 提交回默认分支
 
 补充说明：
 
 - GitHub Release 在创建后仍然可以被后续 workflow 更新
 - 现在同一个 `v*` 标签下，只有 `Publish Release` 直接响应 tag；Android 和 Worker workflow 作为它顺序调用的内部步骤存在
-- GitHub Release 由 `Publish Release` workflow 统一创建、生成描述并挂载这些 zip
+- GitHub Release 由 `Publish Release` workflow 统一创建、生成描述并挂载这些产物
 
 ## 进阶文档
 
