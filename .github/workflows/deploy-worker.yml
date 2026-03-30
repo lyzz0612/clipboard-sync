@@ -1,10 +1,17 @@
 name: Deploy Worker
 
 on:
-  push:
-    tags:
-      - 'worker-v*'
   workflow_dispatch:
+    inputs:
+      version_tag:
+        description: 'Optional version tag, for example v1.0.0'
+        required: false
+  workflow_call:
+    inputs:
+      version_tag:
+        description: 'Release tag, for example v1.0.0'
+        required: true
+        type: string
 
 permissions:
   contents: read
@@ -22,6 +29,18 @@ jobs:
     steps:
       - uses: actions/checkout@v4
 
+      - name: Prepare release metadata
+        shell: bash
+        run: |
+          version_tag="${{ inputs.version_tag }}"
+          if [ -n "$version_tag" ]; then
+            echo "VERSION_TAG=${version_tag}" >> "$GITHUB_ENV"
+            echo "WORKER_ARCHIVE=$RUNNER_TEMP/worker-${version_tag}.zip" >> "$GITHUB_ENV"
+          else
+            echo "VERSION_TAG=manual-${GITHUB_RUN_NUMBER}" >> "$GITHUB_ENV"
+            echo "WORKER_ARCHIVE=$RUNNER_TEMP/worker-manual-${GITHUB_RUN_NUMBER}.zip" >> "$GITHUB_ENV"
+          fi
+
       - uses: actions/setup-node@v4
         with:
           node-version: '22'
@@ -37,3 +56,17 @@ jobs:
         env:
           CLOUDFLARE_API_TOKEN: ${{ secrets.CLOUDFLARE_API_TOKEN }}
           CLOUDFLARE_ACCOUNT_ID: ${{ secrets.CLOUDFLARE_ACCOUNT_ID }}
+
+      - name: Package worker source
+        shell: bash
+        working-directory: ${{ github.workspace }}
+        run: |
+          git archive --format=zip --output "$WORKER_ARCHIVE" \
+            --prefix "worker-${VERSION_TAG}/" HEAD:worker
+
+      - uses: actions/upload-artifact@v4
+        with:
+          name: worker-source-${{ env.VERSION_TAG }}
+          path: ${{ env.WORKER_ARCHIVE }}
+          retention-days: 30
+

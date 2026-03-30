@@ -1,0 +1,86 @@
+name: Publish Release
+
+on:
+  push:
+    tags:
+      - 'v*'
+
+permissions:
+  contents: write
+  actions: read
+
+concurrency:
+  group: publish-release-${{ github.ref }}
+  cancel-in-progress: false
+
+jobs:
+  android:
+    uses: ./.github/workflows/build-android.yml
+    with:
+      version_tag: ${{ github.ref_name }}
+    secrets: inherit
+
+  worker:
+    needs: android
+    uses: ./.github/workflows/deploy-worker.yml
+    with:
+      version_tag: ${{ github.ref_name }}
+    secrets: inherit
+
+  publish:
+    needs: [android, worker]
+    runs-on: ubuntu-latest
+    steps:
+      - uses: actions/checkout@v4
+        with:
+          fetch-depth: 0
+
+      - uses: taiki-e/install-action@git-cliff
+
+      - name: Generate changelog and release notes
+        shell: bash
+        run: |
+          git cliff --config cliff.toml --output CHANGELOG.md
+          git cliff --config cliff.toml --latest --strip header --output RELEASE_NOTES.md
+
+      - name: Commit updated changelog
+        shell: bash
+        env:
+          DEFAULT_BRANCH: ${{ github.event.repository.default_branch }}
+          VERSION_TAG: ${{ github.ref_name }}
+        run: |
+          cp CHANGELOG.md "$RUNNER_TEMP/CHANGELOG.md"
+          git checkout "$DEFAULT_BRANCH"
+          cp "$RUNNER_TEMP/CHANGELOG.md" CHANGELOG.md
+          if git diff --quiet -- CHANGELOG.md; then
+            echo "CHANGELOG.md is already up to date"
+            exit 0
+          fi
+          git config user.name "github-actions[bot]"
+          git config user.email "41898282+github-actions[bot]@users.noreply.github.com"
+          git add CHANGELOG.md
+          git commit -m "docs(changelog): update for ${VERSION_TAG}"
+          git push origin "HEAD:${DEFAULT_BRANCH}"
+
+      - name: Download Android zip artifact
+        uses: actions/download-artifact@v4
+        with:
+          name: android-release-${{ github.ref_name }}
+          path: release-assets/android
+
+      - name: Download Worker zip artifact
+        uses: actions/download-artifact@v4
+        with:
+          name: worker-source-${{ github.ref_name }}
+          path: release-assets/worker
+
+      - name: Create or update GitHub release
+        uses: softprops/action-gh-release@v2
+        with:
+          tag_name: ${{ github.ref_name }}
+          target_commitish: ${{ github.sha }}
+          name: clipboard-sync ${{ github.ref_name }}
+          body_path: RELEASE_NOTES.md
+          files: |
+            release-assets/android/*.zip
+            release-assets/worker/*.zip

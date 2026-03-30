@@ -112,14 +112,14 @@
 
 接着到你 Fork 后的 GitHub 仓库中，打开 `Settings -> Secrets and variables -> Actions`，创建上面这 3 个 Secrets。
 
-配置完成后，创建并推送 Worker 发布标签，`Deploy Worker` 工作流会自动运行：
+配置完成后，创建并推送版本标签，`Publish Release` 工作流会自动运行；它会按顺序调用内部的 Android 打包、Worker 部署、changelog 生成和 Release 发布流程。
 
 ```bash
-git tag worker-v1.0.0
-git push origin worker-v1.0.0
+git tag v1.0.0
+git push origin v1.0.0
 ```
 
-这里的 `worker-v1.0.0` 只是一个示例标签名；关键是标签前缀要符合 `worker-v*`。
+这里的 `v1.0.0` 只是一个示例标签名；关键是标签前缀要符合 `v*`。
 
 如果你不想打标签，也可以手动触发：
 
@@ -162,7 +162,7 @@ git push origin worker-v1.0.0
 
 配置位置同样是你 Fork 仓库的 `Settings -> Secrets and variables -> Actions`。
 
-配置完成后，创建并推送版本标签，Android Release Action 会自动运行：
+配置完成后，创建并推送版本标签，`Publish Release` 工作流会自动运行：
 
 ```bash
 git tag v1.0.0
@@ -180,19 +180,22 @@ git push origin v1.0.0
 工作流会自动：
 
 - 构建 signed release APK 和 AAB
-- 仅在打 `v*` 标签触发时生成 / 更新 GitHub Release
+- 将本次构建产物打成一个 Android zip 包
+- 上传到对应的 Actions Artifacts
 
 构建完成后：
 
-- 如果是打 `v*` 标签触发，可以在自己 Fork 仓库的 `Releases` 页面下载 APK，也可以在对应的 Actions run 里下载构建产物
-- 如果是手动触发，只会上传到对应的 Actions run artifacts，不会创建 GitHub Release
+- 无论是打 `v*` 标签还是手动触发，Android 工作流本身都只上传 zip 到对应的 Actions run artifacts
+- 如果是打 `v*` 标签，`Publish Release` 工作流会按顺序触发 Android 打包、Worker 部署，然后生成 changelog、创建 / 更新 Release，并把两个 zip 挂到对应 Release 页面
+- 如果是手动触发，只会保留在 Actions Artifacts，不会出现在 GitHub Release 页面
 
 说明：
 
-- `Release Android` 只负责构建和发布安装包
-- 手动触发 `Release Android` 时，不会创建 GitHub Release
+- `Release Android` 只负责构建 Android 安装包并上传 zip
+- Android 工作流不会直接创建 GitHub Release
 - 手动触发 `Release Android` 时，不会写入 `CHANGELOG.md`
-- `CHANGELOG.md` 由单独的 `Update Changelog` 工作流在推送 `v*` 标签时更新
+- `CHANGELOG.md` 与 GitHub Release 描述都由单独的 `Publish Release` 工作流在推送 `v*` 标签时生成 / 更新
+- `Publish Release` 会顺序调用 Android / Worker 两个内部 workflow，并把它们产出的 zip 统一挂到同一个 Release 页面
 
 ### 3. 登录
 
@@ -368,21 +371,34 @@ Android 端登录完成后，建议优先完成权限设置，否则只能手动
 仓库内已提供三条工作流：
 
 - `.github/workflows/deploy-worker.yml`
-  - 仅在推送 `worker-v*` 标签时触发，例如 `worker-v1.0.0`
+  - 不再直接监听 tag
   - 也支持 `workflow_dispatch` 手动触发
+  - 也支持被 `Publish Release` 以 `workflow_call` 方式调用
   - 将当前标签指向的代码部署为 Worker
+  - 部署成功后会把对应版本的 `worker` 代码打成 zip 并上传到 Actions Artifacts
+  - 不会直接创建或更新 GitHub Release
 - `.github/workflows/build-android.yml`
-  - 仅在推送版本标签时触发，例如 `v1.0.0`
+  - 不再直接监听 tag
   - 也支持 `workflow_dispatch` 手动触发，需填写版本标签
+  - 也支持被 `Publish Release` 以 `workflow_call` 方式调用
   - 构建已签名的 Android release APK 与 AAB
-  - 仅在标签触发时自动创建 / 更新对应 GitHub Release
-  - 手动触发时仅上传构建产物到 Actions Artifacts
+  - 会把本次构建产物打成 zip 并上传到 Actions Artifacts
   - 手动触发时不会写入 `CHANGELOG.md`
-  - 构建产物会上传到 GitHub Actions Artifacts
-- `.github/workflows/update-changelog.yml`
+- `.github/workflows/publish-release.yml`
   - 仅在推送 `v*` 标签时触发
-  - 使用 `git-cliff` 生成 `CHANGELOG.md`
+  - 是 tag 发布的唯一入口
+  - 先顺序调用 Android 打包，再调用 Worker 部署
+  - 使用 `git-cliff` 生成 `CHANGELOG.md` 和 Release 描述
+  - 创建或更新对应的 GitHub Release
+  - 下载 Android / Worker workflow 产出的 zip artifacts
+  - 将这两个 zip 统一上传到同一个 GitHub Release 页面
   - 将更新后的 `CHANGELOG.md` 提交回默认分支
+
+补充说明：
+
+- GitHub Release 在创建后仍然可以被后续 workflow 更新
+- 现在同一个 `v*` 标签下，只有 `Publish Release` 直接响应 tag；Android 和 Worker workflow 作为它顺序调用的内部步骤存在
+- GitHub Release 由 `Publish Release` workflow 统一创建、生成描述并挂载这些 zip
 
 ## 进阶文档
 
