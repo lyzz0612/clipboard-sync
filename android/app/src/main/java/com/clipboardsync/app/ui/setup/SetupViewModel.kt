@@ -79,7 +79,7 @@ class SetupViewModel(
 
             FileLogger.i("SetupVM", "qr redeem start baseUrlLen=${payload.u.length}")
             _uiState.update { it.copy(isLoading = true, error = null) }
-            prefs.setBaseUrl(payload.u)
+            prefs.setBaseUrl(payload.u.trim())
             repository.invalidateApi()
 
             repository.qrRedeem(payload.c)

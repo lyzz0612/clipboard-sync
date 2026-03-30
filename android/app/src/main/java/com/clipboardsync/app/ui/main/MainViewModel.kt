@@ -18,6 +18,7 @@ import kotlinx.coroutines.flow.StateFlow
 import kotlinx.coroutines.flow.asStateFlow
 import kotlinx.coroutines.launch
 import kotlinx.coroutines.withContext
+import java.util.concurrent.atomic.AtomicInteger
 
 class MainViewModel(
     application: Application,
@@ -38,6 +39,9 @@ class MainViewModel(
     private val _infoMessage = MutableStateFlow<String?>(null)
     val infoMessage: StateFlow<String?> = _infoMessage.asStateFlow()
 
+    /** 防止并发 loadClips 时较慢的旧请求覆盖较新的列表 */
+    private val loadClipsGeneration = AtomicInteger(0)
+
     init {
         FileLogger.i("MainVM", "init loadClips syncClipboard=true (same as manual refresh)")
         loadClips(syncClipboard = true)
@@ -47,13 +51,19 @@ class MainViewModel(
      * @param syncClipboard 为 true 时，在拉取列表成功后把**时间最新**的一条写入系统剪贴板（须主线程，解决真机/ROM 限制）
      */
     fun loadClips(syncClipboard: Boolean = false) {
+        val gen = loadClipsGeneration.incrementAndGet()
         viewModelScope.launch {
-            FileLogger.i("MainVM", "loadClips start syncClipboard=$syncClipboard")
+            FileLogger.i("MainVM", "loadClips start gen=$gen syncClipboard=$syncClipboard")
             _isLoading.value = true
             _error.value = null
-            repository.getClips()
+            val result = repository.getClips()
+            if (gen != loadClipsGeneration.get()) {
+                FileLogger.d("MainVM", "loadClips drop stale gen=$gen current=${loadClipsGeneration.get()}")
+                return@launch
+            }
+            result
                 .onSuccess { list ->
-                    FileLogger.i("MainVM", "loadClips ok count=${list.size} syncClipboard=$syncClipboard")
+                    FileLogger.i("MainVM", "loadClips ok gen=$gen count=${list.size} syncClipboard=$syncClipboard")
                     _clips.value = list
                     if (syncClipboard) {
                         withContext(Dispatchers.Main) {
@@ -62,11 +72,13 @@ class MainViewModel(
                     }
                 }
                 .onFailure {
-                    FileLogger.e("MainVM", "loadClips fail: ${it.message}", it)
+                    FileLogger.e("MainVM", "loadClips fail gen=$gen: ${it.message}", it)
                     _error.value = it.message ?: "加载失败"
                 }
-            _isLoading.value = false
-            FileLogger.d("MainVM", "loadClips end isLoading=false")
+            if (gen == loadClipsGeneration.get()) {
+                _isLoading.value = false
+                FileLogger.d("MainVM", "loadClips end gen=$gen isLoading=false")
+            }
         }
     }
 

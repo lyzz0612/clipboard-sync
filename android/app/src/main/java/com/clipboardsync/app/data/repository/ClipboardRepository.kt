@@ -82,6 +82,7 @@ class ClipboardRepository(private val prefs: PrefsManager) {
         val response = getApi().qrRedeem(QrRedeemRequest(code))
         prefs.setToken(response.token)
         prefs.setUsername(response.username)
+        prefs.setLastSyncTime("")
         FileLogger.i("Repo", "qrRedeem ok user=${FileLogger.preview(response.username, 40)}")
         response.token
     }.onFailure { e ->
@@ -94,6 +95,7 @@ class ClipboardRepository(private val prefs: PrefsManager) {
         val response = getApi().login(LoginRequest(username, password))
         prefs.setToken(response.token)
         prefs.setUsername(username)
+        prefs.setLastSyncTime("")
         FileLogger.i("Repo", "login ok tokenLen=${response.token.length}")
         response.token
     }.onFailure { e ->
@@ -172,8 +174,9 @@ class ClipboardRepository(private val prefs: PrefsManager) {
         if (throwable is HttpException) {
             FileLogger.w("Repo", "http code=${throwable.code()}")
             if (throwable.code() == 401) {
-                FileLogger.w("Repo", "clearing token (401)")
+                FileLogger.w("Repo", "clearing token + sync watermark (401)")
                 prefs.setToken("")
+                prefs.setLastSyncTime("")
             }
         }
     }

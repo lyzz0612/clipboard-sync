@@ -17,6 +17,7 @@ import androidx.compose.material.icons.automirrored.filled.ExitToApp
 import androidx.compose.material.icons.filled.Delete
 import androidx.compose.material.icons.filled.Refresh
 import androidx.compose.material.icons.filled.Settings
+import androidx.compose.material3.AlertDialog
 import androidx.compose.material3.Button
 import androidx.compose.material3.Card
 import androidx.compose.material3.CircularProgressIndicator
@@ -52,6 +53,8 @@ import androidx.lifecycle.viewmodel.compose.viewModel
 import com.clipboardsync.app.R
 import com.clipboardsync.app.data.local.PrefsManager
 import com.clipboardsync.app.data.repository.ClipboardRepository
+import com.clipboardsync.app.service.ClipboardAccessibilityService
+import com.clipboardsync.app.util.MiuiHelper
 
 @OptIn(ExperimentalMaterial3Api::class)
 @Composable
@@ -63,6 +66,7 @@ fun MainScreen(
     val appName = stringResource(R.string.app_name)
     val app = context.applicationContext as Application
     val prefs = remember { PrefsManager.getInstance(context) }
+    val username = remember { prefs.getUsername() }
     val repository = remember { ClipboardRepository(prefs) }
     val viewModel: MainViewModel = viewModel(
         factory = MainViewModel.Factory(app, prefs, repository)
@@ -74,6 +78,12 @@ fun MainScreen(
     val infoMessage by viewModel.infoMessage.collectAsState()
     val snackbarHostState = remember { SnackbarHostState() }
     var newClipText by rememberSaveable { mutableStateOf("") }
+    var showPermissionGuide by rememberSaveable {
+        mutableStateOf(
+            !prefs.hasSeenPermissionGuide() &&
+                !MiuiHelper.isAccessibilityServiceEnabled(context, ClipboardAccessibilityService::class.java)
+        )
+    }
 
     LaunchedEffect(error) {
         error?.let {
@@ -89,10 +99,60 @@ fun MainScreen(
         }
     }
 
+    if (showPermissionGuide) {
+        AlertDialog(
+            onDismissRequest = {
+                prefs.setHasSeenPermissionGuide(true)
+                showPermissionGuide = false
+            },
+            title = { Text("先完成权限设置") },
+            text = {
+                Text(
+                    "为保证剪贴板能自动同步，应用需要开启无障碍服务，" +
+                        "这样才能在您准备粘贴时触发同步最新内容。我们只用它感知输入法弹出，" +
+                        "不会读取屏幕文字；如果不打开，应用只能手动刷新。" +
+                        "另外也建议按页面说明关闭电池优化，避免后台被系统回收。"
+                )
+            },
+            confirmButton = {
+                Button(
+                    onClick = {
+                        prefs.setHasSeenPermissionGuide(true)
+                        showPermissionGuide = false
+                        onNavigateToPermissions()
+                    }
+                ) {
+                    Text("去设置")
+                }
+            },
+            dismissButton = {
+                Button(
+                    onClick = {
+                        prefs.setHasSeenPermissionGuide(true)
+                        showPermissionGuide = false
+                    }
+                ) {
+                    Text("稍后再说")
+                }
+            }
+        )
+    }
+
     Scaffold(
         topBar = {
             TopAppBar(
-                title = { Text(appName) },
+                title = {
+                    Column {
+                        Text(appName)
+                        if (username.isNotBlank()) {
+                            Text(
+                                text = "当前用户：$username",
+                                style = MaterialTheme.typography.labelMedium,
+                                color = MaterialTheme.colorScheme.onPrimaryContainer.copy(alpha = 0.8f)
+                            )
+                        }
+                    }
+                },
                 colors = TopAppBarDefaults.topAppBarColors(
                     containerColor = MaterialTheme.colorScheme.primaryContainer,
                     titleContentColor = MaterialTheme.colorScheme.onPrimaryContainer

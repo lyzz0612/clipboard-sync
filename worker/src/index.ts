@@ -107,6 +107,10 @@ async function handleLogin(request: Request, env: Env): Promise<Response> {
   return json({ token });
 }
 
+async function handleMe(userId: string, username: string): Promise<Response> {
+  return json({ id: userId, username });
+}
+
 async function handleGetClips(env: Env, userId: string): Promise<Response> {
   const raw = await env.KV.get(`CLIPS:${userId}`);
   const clips: ClipItem[] = raw ? JSON.parse(raw) : [];
@@ -200,6 +204,10 @@ export default {
 
       if (path === '/api/auth/qr-session' && request.method === 'POST') {
         return await handleQrSession(env, userId, authResult.username);
+      }
+
+      if (path === '/api/me' && request.method === 'GET') {
+        return await handleMe(userId, authResult.username);
       }
 
       if (path === '/api/clips' && request.method === 'GET') {

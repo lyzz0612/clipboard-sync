@@ -22,7 +22,8 @@ class PrefsManager private constructor(context: Context) {
     fun getBaseUrl(): String = prefs.getString(KEY_BASE_URL, "") ?: ""
 
     fun setBaseUrl(url: String) {
-        val normalized = if (url.isNotEmpty() && !url.endsWith("/")) "$url/" else url
+        val t = url.trim()
+        val normalized = if (t.isNotEmpty() && !t.endsWith("/")) "$t/" else t
         prefs.edit().putString(KEY_BASE_URL, normalized).apply()
     }
 
@@ -46,6 +47,12 @@ class PrefsManager private constructor(context: Context) {
 
     fun isLoggedIn(): Boolean = getToken().isNotEmpty() && getBaseUrl().isNotEmpty()
 
+    fun hasSeenPermissionGuide(): Boolean = prefs.getBoolean(KEY_HAS_SEEN_PERMISSION_GUIDE, false)
+
+    fun setHasSeenPermissionGuide(seen: Boolean) {
+        prefs.edit().putBoolean(KEY_HAS_SEEN_PERMISSION_GUIDE, seen).apply()
+    }
+
     fun clear() {
         prefs.edit().clear().apply()
     }
@@ -55,6 +62,7 @@ class PrefsManager private constructor(context: Context) {
         private const val KEY_TOKEN = "token"
         private const val KEY_USERNAME = "username"
         private const val KEY_LAST_SYNC = "last_sync_time"
+        private const val KEY_HAS_SEEN_PERMISSION_GUIDE = "has_seen_permission_guide"
 
         @Volatile
         private var instance: PrefsManager? = null

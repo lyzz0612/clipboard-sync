@@ -72,6 +72,21 @@ object MiuiHelper {
         runCatching { context.startActivity(intent) }
     }
 
+    fun isAccessibilityServiceEnabled(context: Context, serviceClass: Class<*>): Boolean {
+        val expectedComponent = ComponentName(context, serviceClass)
+        val enabledServices = Settings.Secure.getString(
+            context.contentResolver,
+            Settings.Secure.ENABLED_ACCESSIBILITY_SERVICES
+        ) ?: return false
+
+        return enabledServices
+            .split(':')
+            .any { enabled ->
+                enabled.equals(expectedComponent.flattenToString(), ignoreCase = true) ||
+                    enabled.equals(expectedComponent.flattenToShortString(), ignoreCase = true)
+            }
+    }
+
     fun isMiui(): Boolean {
         return try {
             val clazz = Class.forName("android.os.SystemProperties")

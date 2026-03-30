@@ -97,6 +97,12 @@ body::before {
   gap: .6rem;
 }
 
+.header-copy {
+  display: flex;
+  flex-direction: column;
+  gap: .2rem;
+}
+
 .logo-icon {
   width: 34px;
   height: 34px;
@@ -115,6 +121,12 @@ body::before {
   font-size: 1.25rem;
   font-weight: 700;
   letter-spacing: -0.02em;
+}
+
+.current-user {
+  font-size: .8rem;
+  color: var(--text-secondary);
+  line-height: 1.3;
 }
 
 .btn {
@@ -217,6 +229,14 @@ textarea:focus {
 }
 
 .compose-actions { display: flex; justify-content: flex-end; }
+
+.sync-delay-hint {
+  font-size: .78rem;
+  line-height: 1.45;
+  color: var(--text-tertiary);
+  margin: 0 0 1.25rem;
+  padding: 0 .15rem;
+}
 
 /* ── Clips Section ── */
 .clips-section { animation: fadeInUp .6s ease-out; }
@@ -427,7 +447,10 @@ textarea:focus {
       <div class="logo-icon">
         <svg viewBox="0 0 24 24" xmlns="http://www.w3.org/2000/svg"><path d="M16 1H4a2 2 0 0 0-2 2v14h2V3h12V1zm3 4H8a2 2 0 0 0-2 2v14a2 2 0 0 0 2 2h11a2 2 0 0 0 2-2V7a2 2 0 0 0-2-2zm0 16H8V7h11v14z"/></svg>
       </div>
-      <h1 data-i18n="title"></h1>
+      <div class="header-copy">
+        <h1 data-i18n="title"></h1>
+        <div class="current-user" id="currentUser"></div>
+      </div>
     </div>
     <div style="display:flex;gap:.5rem;align-items:center">
       <button type="button" class="btn btn-icon qr-open-btn" id="qrOpenBtn" data-i18n-title="qrOpenTitle" aria-label="QR">
@@ -443,6 +466,7 @@ textarea:focus {
       <button class="btn btn-primary" id="submitBtn" data-i18n="submit"></button>
     </div>
   </div>
+  <p class="sync-delay-hint" data-i18n="syncDelayHint"></p>
   <div class="clips-section">
     <div class="clips-header">
       <h2 data-i18n="yourClips"></h2>
@@ -490,7 +514,12 @@ textarea:focus {
       qrRefresh: '刷新二维码',
       qrOpenTitle: 'App 扫码登录',
       qrLibMissing: '二维码库加载失败，请检查网络或稍后重试',
-      qrGenFail: '生成二维码失败'
+      qrGenFail: '生成二维码失败',
+      currentUser: '当前用户',
+      currentUserLoading: '读取中…',
+      currentUserUnknown: '未知',
+      syncDelayHint: '提示：在本页新增或删除剪贴后，手机等其它设备上的列表可能不会立刻更新，请稍候再刷新。',
+      syncDelayToast: '已提交。其它终端可能要稍后才能看到变化。'
     },
     en: {
       title: 'Clipboard Sync',
@@ -514,7 +543,12 @@ textarea:focus {
       qrRefresh: 'Refresh QR',
       qrOpenTitle: 'App QR sign-in',
       qrLibMissing: 'Could not load QR library. Check your network and try again.',
-      qrGenFail: 'Could not generate QR code'
+      qrGenFail: 'Could not generate QR code',
+      currentUser: 'Current user',
+      currentUserLoading: 'Loading…',
+      currentUserUnknown: 'Unknown',
+      syncDelayHint: 'Note: After you add or remove a clip here, other devices may not update immediately. Try refreshing again shortly.',
+      syncDelayToast: 'Done. Other devices may take a moment to show this change.'
     }
   };
 
@@ -540,6 +574,7 @@ textarea:focus {
     });
     langSwitch.textContent = lang === 'zh' ? 'EN' : '中文';
     if (clipText) clipText.placeholder = t.placeholder;
+    renderCurrentUser();
   }
 
   langSwitch.addEventListener('click', function() {
@@ -559,9 +594,19 @@ textarea:focus {
   var refreshBtn = document.getElementById('refreshBtn');
   var logoutBtn = document.getElementById('logoutBtn');
   var clipList = document.getElementById('clipList');
+  var currentUserEl = document.getElementById('currentUser');
   var toastTimer = null;
+  var currentUsername = sessionStorage.getItem('username') || '';
 
   applyLang();
+
+  function renderCurrentUser() {
+    if (!currentUserEl) return;
+    var value = currentUsername || t.currentUserLoading;
+    currentUserEl.textContent = t.currentUser + ': ' + value;
+  }
+
+  renderCurrentUser();
 
   function showToast(msg) {
     clearTimeout(toastTimer);
@@ -570,11 +615,12 @@ textarea:focus {
     toastTimer = setTimeout(function() { toast.style.display = 'none'; }, 3000);
   }
 
-  function showSuccess(msg) {
+  function showSuccess(msg, durationMs) {
+    var ms = typeof durationMs === 'number' ? durationMs : 2000;
     clearTimeout(toastTimer);
     toastSuccess.textContent = msg;
     toastSuccess.style.display = 'block';
-    toastTimer = setTimeout(function() { toastSuccess.style.display = 'none'; }, 2000);
+    toastTimer = setTimeout(function() { toastSuccess.style.display = 'none'; }, ms);
   }
 
   function api(method, path, body) {
@@ -666,6 +712,17 @@ textarea:focus {
       .catch(function(e) { showToast(e.message); });
   }
 
+  function loadCurrentUser() {
+    api('GET', '/api/me').then(function(d) {
+      currentUsername = d.username || t.currentUserUnknown;
+      sessionStorage.setItem('username', currentUsername);
+      renderCurrentUser();
+    }).catch(function() {
+      currentUsername = currentUsername || t.currentUserUnknown;
+      renderCurrentUser();
+    });
+  }
+
   submitBtn.addEventListener('click', function() {
     var text = clipText.value.trim();
     if (!text) return;
@@ -673,6 +730,7 @@ textarea:focus {
     api('POST', '/api/clips', { text: text }).then(function() {
       clipText.value = '';
       loadClips();
+      showSuccess(t.syncDelayToast, 4500);
     }).catch(function(e) { showToast(e.message); })
       .finally(function() { submitBtn.disabled = false; });
   });
@@ -688,14 +746,19 @@ textarea:focus {
     if (!delBtn) return;
     var id = delBtn.getAttribute('data-id');
     delBtn.disabled = true;
-    api('DELETE', '/api/clips/' + id).then(function() { loadClips(); })
-      .catch(function(e) { showToast(e.message); });
+    api('DELETE', '/api/clips/' + id).then(function() {
+      loadClips();
+      showSuccess(t.syncDelayToast, 4500);
+    })
+      .catch(function(e) { showToast(e.message); })
+      .finally(function() { delBtn.disabled = false; });
   });
 
   refreshBtn.addEventListener('click', loadClips);
 
   logoutBtn.addEventListener('click', function() {
     sessionStorage.removeItem('token');
+    sessionStorage.removeItem('username');
     window.location.href = 'index.html';
   });
 
@@ -805,6 +868,7 @@ textarea:focus {
     if (e.key === 'Escape' && qrModal.classList.contains('is-open')) closeQrModal();
   });
 
+  loadCurrentUser();
   loadClips();
   setInterval(loadClips, 30000);
 })();
