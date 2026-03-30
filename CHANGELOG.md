@@ -1,6 +1,23 @@
 # Changelog
 
 本文件由 GitHub Actions 在发布 Android 版本标签时自动生成和更新。
+## v1.0.1 - 2026-03-30
+
+### Documentation
+
+- docs(changelog): update for v1.0.0
+
+
+### Refactors
+
+- refactor: update release workflows and documentation for improved clarity
+
+- Consolidated release processes by introducing the `Publish Release` workflow, which now handles version tagging, changelog generation, and artifact uploads.
+- Updated `build-android` and `deploy-worker` workflows to support manual triggers and internal calls from `Publish Release`.
+- Removed the outdated `update-changelog` workflow, integrating its functionality into the new release process.
+- Enhanced documentation in README files to reflect changes in the release workflow and clarify the roles of each workflow in the build and deployment process.
+
+
 ## v1.0.0 - 2026-03-30
 
 ### Chores
