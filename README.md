@@ -90,7 +90,7 @@
 
 ## 快速开始
 
-> 如果你不想自己部署，可以先直接使用示例站点：[https://clipboard.skyup.top/](https://clipboard.skyup.top/)
+> 如果你不想自己部署，可以先直接使用示例站点：[https://clipboard.skyup.top/](https://clipboard.skyup.top/)  示例账号密码：`demo` / `demo`
 >
 > 如果你不想自己打 Android 安装包，也可以直接下载现成版本：[https://github.com/lyzz0612/clipboard-sync/releases/latest](https://github.com/lyzz0612/clipboard-sync/releases/latest)
 
