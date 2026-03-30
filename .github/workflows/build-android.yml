@@ -6,11 +6,24 @@ on:
       version_tag:
         description: 'Release tag, for example v1.0.0'
         required: true
+      build_mode:
+        description: 'Build mode'
+        required: true
+        default: release
+        type: choice
+        options:
+          - release
+          - debug
   workflow_call:
     inputs:
       version_tag:
         description: 'Release tag, for example v1.0.0'
         required: true
+        type: string
+      build_mode:
+        description: 'Build mode'
+        required: false
+        default: release
         type: string
 
 permissions:
@@ -38,11 +51,26 @@ jobs:
         shell: bash
         run: |
           version_tag="${{ inputs.version_tag }}"
+          build_mode="${{ inputs.build_mode || 'release' }}"
+          if [ "$build_mode" != "release" ] && [ "$build_mode" != "debug" ]; then
+            echo "Unsupported build mode: $build_mode" >&2
+            exit 1
+          fi
           echo "VERSION_TAG=${version_tag}" >> "$GITHUB_ENV"
           echo "VERSION_NAME=${version_tag#v}" >> "$GITHUB_ENV"
-          echo "ANDROID_APK=$RUNNER_TEMP/clipboard-sync-${version_tag#v}.apk" >> "$GITHUB_ENV"
+          echo "BUILD_MODE=${build_mode}" >> "$GITHUB_ENV"
+          if [ "$build_mode" = "debug" ]; then
+            echo "APK_TASK=assembleDebug" >> "$GITHUB_ENV"
+            echo "APK_OUTPUT_DIR=android/app/build/outputs/apk/debug" >> "$GITHUB_ENV"
+            echo "ANDROID_APK=$RUNNER_TEMP/clipboard-sync-${version_tag#v}-debug.apk" >> "$GITHUB_ENV"
+          else
+            echo "APK_TASK=assembleRelease" >> "$GITHUB_ENV"
+            echo "APK_OUTPUT_DIR=android/app/build/outputs/apk/release" >> "$GITHUB_ENV"
+            echo "ANDROID_APK=$RUNNER_TEMP/clipboard-sync-${version_tag#v}.apk" >> "$GITHUB_ENV"
+          fi
 
       - name: Decode Android signing keystore
+        if: env.BUILD_MODE == 'release'
         shell: bash
         env:
           ANDROID_KEYSTORE_BASE64: ${{ secrets.ANDROID_KEYSTORE_BASE64 }}
@@ -59,19 +87,19 @@ jobs:
         working-directory: android
         env:
           VERSION_NAME: ${{ env.VERSION_NAME }}
-          CI_RELEASE: "true"
+          CI_RELEASE: ${{ env.BUILD_MODE == 'release' && 'true' || 'false' }}
           ANDROID_KEYSTORE_PATH: ${{ env.ANDROID_KEYSTORE_PATH }}
           ANDROID_KEYSTORE_PASSWORD: ${{ secrets.ANDROID_KEYSTORE_PASSWORD }}
           ANDROID_KEY_ALIAS: ${{ secrets.ANDROID_KEY_ALIAS }}
           ANDROID_KEY_PASSWORD: ${{ secrets.ANDROID_KEY_PASSWORD }}
         run: |
           chmod +x gradlew
-          ./gradlew clean assembleRelease --no-daemon
+          ./gradlew clean "$APK_TASK" --no-daemon
 
       - name: Rename Android APK
         shell: bash
         run: |
-          cp android/app/build/outputs/apk/release/*.apk "$ANDROID_APK"
+          cp "$APK_OUTPUT_DIR"/*.apk "$ANDROID_APK"
 
       - uses: actions/upload-artifact@v4
         with:

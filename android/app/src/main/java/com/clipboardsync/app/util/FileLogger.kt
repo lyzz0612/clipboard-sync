@@ -3,6 +3,7 @@ package com.clipboardsync.app.util
 import android.content.Context
 import android.os.Build
 import android.util.Log
+import com.clipboardsync.app.BuildConfig
 import java.io.File
 import java.time.Instant
 import java.time.ZoneId
@@ -21,7 +22,7 @@ import java.util.Locale
  */
 object FileLogger {
 
-    private const val ENABLED = false
+    private const val ENABLED = BuildConfig.ENABLE_FILE_LOGGER
 
     /** 与 [ENABLED] 一致；网络库等可据此关闭 logcat 输出。 */
     fun isEnabled(): Boolean = ENABLED

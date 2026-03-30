@@ -40,7 +40,9 @@ class ClipboardRepository(private val prefs: PrefsManager) {
                 chain.proceed(request)
             }
 
-            val loggingInterceptor = HttpLoggingInterceptor().apply {
+            val loggingInterceptor = HttpLoggingInterceptor { message ->
+                FileLogger.d("HTTP", message)
+            }.apply {
                 level = if (FileLogger.isEnabled()) {
                     HttpLoggingInterceptor.Level.BASIC
                 } else {
