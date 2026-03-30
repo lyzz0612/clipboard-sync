@@ -22,7 +22,10 @@ npm run dev
 
 ## 环境变量
 
-将 `.dev.vars.example` 复制为 `.dev.vars`，并设置 `JWT_SECRET`。
+将 `.dev.vars.example` 复制为 `.dev.vars`，至少设置：
+
+- `JWT_SECRET`
+- `ADMIN_PASSWORD`（用于 `admin.html` 和 `/api/admin/*` 管理接口）
 
 ## KV 存储
 

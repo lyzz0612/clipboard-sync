@@ -34,6 +34,7 @@ npm run dev
 将 `worker/.dev.vars.example` 复制为 `worker/.dev.vars`，至少配置：
 
 - `JWT_SECRET`
+- `ADMIN_PASSWORD`
 
 ### KV 行为
 

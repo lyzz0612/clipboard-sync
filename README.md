@@ -53,6 +53,7 @@
 - 查看云端剪贴板列表
 - 新增、复制、删除剪贴板内容
 - 生成二维码供 App 扫码登录
+- 独立管理员模块：可列出全部用户、批量删除用户、配置是否允许注册
 
 ### Android 端
 
@@ -111,16 +112,25 @@
 
 接着到你 Fork 后的 GitHub 仓库中，打开 `Settings -> Secrets and variables -> Actions`，创建上面这 3 个 Secrets。
 
-然后手动运行 Worker 部署工作流：
+配置完成后，创建并推送 Worker 发布标签，`Deploy Worker` 工作流会自动运行：
+
+```bash
+git tag worker-v1.0.0
+git push origin worker-v1.0.0
+```
+
+这里的 `worker-v1.0.0` 只是一个示例标签名；关键是标签前缀要符合 `worker-v*`。
+
+如果你不想打标签，也可以手动触发：
 
 1. 打开 `Actions`
 2. 进入 `Deploy Worker`
 3. 点击 `Run workflow`
-4. 选择默认分支并执行
+4. 选择要部署的分支 / 提交对应分支后执行
 
 部署成功后，你会拿到一个可访问的网址，通常是 Cloudflare 分配的 `workers.dev` 地址；
 
-最后还要去 Cloudflare 后台补上运行时密钥 `JWT_SECRET`：
+最后还要去 Cloudflare 后台补上运行时密钥 `JWT_SECRET` 与 `ADMIN_PASSWORD`：
 
 1. 打开 Cloudflare Dashboard
 2. 进入 `Workers 和 Pages`
@@ -128,6 +138,8 @@
 4. 进入 `Settings -> Variables and Secrets`
 5. 新建 Secret：`JWT_SECRET`
 6. 值填写一个随机字符串，建议 32 位以上
+7. 再新建 Secret：`ADMIN_PASSWORD`
+8. 值填写管理员模块登录密码，建议使用强密码
 
 ### 2. 获取 Android 安装包
 
@@ -157,13 +169,30 @@ git tag v1.0.0
 git push origin v1.0.0
 ```
 
+如果你不想先打标签，也可以手动触发：
+
+1. 打开 `Actions`
+2. 进入 `Release Android`
+3. 点击 `Run workflow`
+4. 填写版本号标签，例如 `v1.0.0`
+5. 选择要构建的分支后执行
+
 工作流会自动：
 
 - 构建 signed release APK 和 AAB
-- 生成 / 更新 GitHub Release
-- 生成对应版本的 `CHANGELOG.md`
+- 仅在打 `v*` 标签触发时生成 / 更新 GitHub Release
 
-构建完成后，你可以在自己 Fork 仓库的 `Releases` 页面下载 APK，也可以在对应的 Actions run 里下载构建产物。
+构建完成后：
+
+- 如果是打 `v*` 标签触发，可以在自己 Fork 仓库的 `Releases` 页面下载 APK，也可以在对应的 Actions run 里下载构建产物
+- 如果是手动触发，只会上传到对应的 Actions run artifacts，不会创建 GitHub Release
+
+说明：
+
+- `Release Android` 只负责构建和发布安装包
+- 手动触发 `Release Android` 时，不会创建 GitHub Release
+- 手动触发 `Release Android` 时，不会写入 `CHANGELOG.md`
+- `CHANGELOG.md` 由单独的 `Update Changelog` 工作流在推送 `v*` 标签时更新
 
 ### 3. 登录
 
@@ -336,17 +365,24 @@ Android 端登录完成后，建议优先完成权限设置，否则只能手动
 
 ## GitHub Actions
 
-仓库内已提供两条工作流：
+仓库内已提供三条工作流：
 
 - `.github/workflows/deploy-worker.yml`
-  - `master` 分支下 `worker/**` 变更时自动部署 Worker
+  - 仅在推送 `worker-v*` 标签时触发，例如 `worker-v1.0.0`
   - 也支持 `workflow_dispatch` 手动触发
+  - 将当前标签指向的代码部署为 Worker
 - `.github/workflows/build-android.yml`
   - 仅在推送版本标签时触发，例如 `v1.0.0`
+  - 也支持 `workflow_dispatch` 手动触发，需填写版本标签
   - 构建已签名的 Android release APK 与 AAB
-  - 自动创建 / 更新对应 GitHub Release
-  - 自动生成 `CHANGELOG.md`，并提交回默认分支
-  - 构建产物与 `CHANGELOG.md` 会同时上传到 GitHub Actions Artifacts
+  - 仅在标签触发时自动创建 / 更新对应 GitHub Release
+  - 手动触发时仅上传构建产物到 Actions Artifacts
+  - 手动触发时不会写入 `CHANGELOG.md`
+  - 构建产物会上传到 GitHub Actions Artifacts
+- `.github/workflows/update-changelog.yml`
+  - 仅在推送 `v*` 标签时触发
+  - 使用 `git-cliff` 生成 `CHANGELOG.md`
+  - 将更新后的 `CHANGELOG.md` 提交回默认分支
 
 ## 进阶文档
 

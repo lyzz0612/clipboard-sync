@@ -2,15 +2,15 @@ name: Deploy Worker
 
 on:
   push:
-    branches: [master]
-    paths: ['worker/**']
+    tags:
+      - 'worker-v*'
   workflow_dispatch:
 
 permissions:
   contents: read
 
 concurrency:
-  group: deploy-worker-master
+  group: deploy-worker-${{ github.ref }}
   cancel-in-progress: false
 
 jobs:

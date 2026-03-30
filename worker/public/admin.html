@@ -1,0 +1,979 @@
+<!DOCTYPE html>
+<html lang="en">
+<head>
+<meta charset="UTF-8">
+<meta name="viewport" content="width=device-width, initial-scale=1.0">
+<title>Clipboard Sync Admin</title>
+<link rel="preconnect" href="https://fonts.googleapis.com">
+<link rel="preconnect" href="https://fonts.gstatic.com" crossorigin>
+<link href="https://fonts.googleapis.com/css2?family=Inter:wght@400;500;600;700&display=swap" rel="stylesheet">
+<style>
+*, *::before, *::after { box-sizing: border-box; margin: 0; padding: 0; }
+
+:root {
+  --bg-gradient-start: #111827;
+  --bg-gradient-mid: #1f2937;
+  --bg-gradient-end: #0f172a;
+  --surface: rgba(255, 255, 255, 0.06);
+  --surface-hover: rgba(255, 255, 255, 0.09);
+  --border: rgba(255, 255, 255, 0.1);
+  --border-light: rgba(255, 255, 255, 0.06);
+  --text-primary: #f3f4f6;
+  --text-secondary: rgba(243, 244, 246, 0.65);
+  --text-tertiary: rgba(243, 244, 246, 0.4);
+  --accent: #60a5fa;
+  --accent-hover: #3b82f6;
+  --danger: #ef4444;
+  --danger-hover: #dc2626;
+  --success: #10b981;
+  --shadow: 0 24px 60px rgba(0, 0, 0, 0.35);
+}
+
+body {
+  font-family: 'Inter', -apple-system, BlinkMacSystemFont, 'Segoe UI', sans-serif;
+  background: linear-gradient(135deg, var(--bg-gradient-start), var(--bg-gradient-mid), var(--bg-gradient-end));
+  color: var(--text-primary);
+  min-height: 100vh;
+  padding: 1.25rem;
+  position: relative;
+}
+
+body::before {
+  content: '';
+  position: fixed;
+  inset: auto -120px -120px auto;
+  width: 320px;
+  height: 320px;
+  border-radius: 50%;
+  background: radial-gradient(circle, rgba(96, 165, 250, 0.2) 0%, transparent 70%);
+  pointer-events: none;
+}
+
+.container {
+  max-width: 960px;
+  margin: 0 auto;
+  width: 100%;
+  position: relative;
+  z-index: 1;
+}
+
+body.login-mode {
+  display: flex;
+  align-items: center;
+  justify-content: center;
+  overflow: hidden;
+}
+
+.panel {
+  background: var(--surface);
+  backdrop-filter: blur(22px);
+  -webkit-backdrop-filter: blur(22px);
+  border: 1px solid var(--border);
+  border-radius: 18px;
+  box-shadow: var(--shadow);
+}
+
+.login-panel {
+  max-width: 500px;
+  margin: 0 auto;
+  padding: 2.25rem;
+  position: relative;
+  overflow: hidden;
+  border-color: rgba(96, 165, 250, 0.22);
+  box-shadow: 0 28px 70px rgba(0, 0, 0, 0.42), 0 0 0 1px rgba(96, 165, 250, 0.08);
+}
+
+.login-panel::before {
+  content: '';
+  position: absolute;
+  inset: 0 0 auto 0;
+  height: 5px;
+  background: linear-gradient(90deg, var(--accent), #93c5fd, #bfdbfe);
+}
+
+.login-panel::after {
+  content: '';
+  position: absolute;
+  width: 260px;
+  height: 260px;
+  border-radius: 50%;
+  right: -120px;
+  top: -120px;
+  background: radial-gradient(circle, rgba(96, 165, 250, 0.18) 0%, transparent 72%);
+  pointer-events: none;
+}
+
+.header {
+  display: flex;
+  align-items: center;
+  justify-content: space-between;
+  gap: 1rem;
+  margin-bottom: 1.25rem;
+}
+
+.brand-group {
+  display: flex;
+  align-items: flex-start;
+  gap: .9rem;
+  min-width: 0;
+}
+
+.brand-home {
+  width: 42px;
+  height: 42px;
+  display: inline-flex;
+  align-items: center;
+  justify-content: center;
+  flex-shrink: 0;
+  border-radius: 12px;
+  background: linear-gradient(135deg, var(--accent), #93c5fd);
+  box-shadow: 0 10px 24px rgba(96, 165, 250, 0.28);
+  transition: transform .15s ease, box-shadow .2s ease, opacity .2s ease;
+}
+
+.brand-home:hover {
+  transform: translateY(-1px);
+  box-shadow: 0 14px 28px rgba(96, 165, 250, 0.32);
+}
+
+.brand-home svg {
+  width: 20px;
+  height: 20px;
+  fill: #fff;
+}
+
+.eyebrow {
+  display: inline-flex;
+  align-items: center;
+  gap: .35rem;
+  margin-bottom: .7rem;
+  padding: .32rem .62rem;
+  border-radius: 999px;
+  background: rgba(96, 165, 250, 0.12);
+  border: 1px solid rgba(96, 165, 250, 0.18);
+  color: #bfdbfe;
+  font-size: .74rem;
+  font-weight: 700;
+  letter-spacing: .08em;
+  text-transform: uppercase;
+}
+
+.title-wrap h1 {
+  font-size: 1.4rem;
+  letter-spacing: -0.02em;
+}
+
+.login-panel .header {
+  align-items: flex-start;
+  margin-bottom: 1.6rem;
+}
+
+.login-panel .brand-home {
+  width: 52px;
+  height: 52px;
+  border-radius: 14px;
+}
+
+.login-panel .brand-home svg {
+  width: 24px;
+  height: 24px;
+}
+
+.login-panel .title-wrap h1 {
+  font-size: 1.95rem;
+  line-height: 1.05;
+}
+
+.subtitle {
+  color: var(--text-secondary);
+  font-size: .9rem;
+  line-height: 1.5;
+}
+
+.login-panel .subtitle {
+  max-width: 30rem;
+  font-size: .95rem;
+  color: rgba(243, 244, 246, 0.72);
+}
+
+.toolbar {
+  display: flex;
+  align-items: center;
+  gap: .5rem;
+  flex-wrap: wrap;
+}
+
+.login-actions {
+  margin-top: 1.2rem;
+  display: grid;
+  grid-template-columns: minmax(0, 1fr) auto;
+  gap: .7rem;
+}
+
+.dashboard {
+  display: none;
+  gap: 1rem;
+}
+
+.dashboard.is-ready {
+  display: grid;
+}
+
+.top-grid {
+  display: grid;
+  grid-template-columns: repeat(2, minmax(0, 1fr));
+  gap: 1rem;
+  margin-bottom: 1rem;
+}
+
+.card {
+  padding: 1.25rem;
+}
+
+.card h2 {
+  font-size: 1rem;
+  margin-bottom: .35rem;
+}
+
+.muted {
+  color: var(--text-secondary);
+  font-size: .9rem;
+  line-height: 1.55;
+}
+
+.metrics {
+  font-size: 2rem;
+  font-weight: 700;
+  margin-top: .9rem;
+}
+
+.form-row {
+  display: flex;
+  flex-direction: column;
+  gap: .5rem;
+  margin-top: 1rem;
+}
+
+.login-panel .form-row {
+  margin-top: 1.2rem;
+}
+
+label {
+  font-size: .82rem;
+  color: var(--text-secondary);
+  text-transform: uppercase;
+  letter-spacing: .06em;
+}
+
+input[type="password"] {
+  width: 100%;
+  padding: .8rem .95rem;
+  border-radius: 12px;
+  border: 1px solid var(--border);
+  background: rgba(255, 255, 255, 0.04);
+  color: var(--text-primary);
+  font-size: .95rem;
+}
+
+input[type="password"]:focus {
+  outline: none;
+  border-color: var(--accent);
+  box-shadow: 0 0 0 3px rgba(96, 165, 250, 0.2);
+}
+
+.toggle-row {
+  margin-top: 1rem;
+  display: flex;
+  align-items: center;
+  justify-content: space-between;
+  gap: 1rem;
+}
+
+.toggle-copy {
+  flex: 1;
+}
+
+.toggle-title {
+  font-weight: 600;
+}
+
+.toggle-desc {
+  color: var(--text-secondary);
+  font-size: .88rem;
+  margin-top: .3rem;
+  line-height: 1.5;
+}
+
+.switch {
+  position: relative;
+  width: 54px;
+  height: 30px;
+  display: inline-block;
+  flex-shrink: 0;
+}
+
+.switch input {
+  opacity: 0;
+  width: 0;
+  height: 0;
+}
+
+.slider {
+  position: absolute;
+  inset: 0;
+  border-radius: 999px;
+  background: rgba(255, 255, 255, 0.16);
+  transition: background .2s ease;
+}
+
+.slider::before {
+  content: '';
+  position: absolute;
+  width: 22px;
+  height: 22px;
+  left: 4px;
+  top: 4px;
+  border-radius: 50%;
+  background: #fff;
+  transition: transform .2s ease;
+}
+
+.switch input:checked + .slider {
+  background: rgba(16, 185, 129, 0.55);
+}
+
+.switch input:checked + .slider::before {
+  transform: translateX(24px);
+}
+
+.btn {
+  display: inline-flex;
+  align-items: center;
+  justify-content: center;
+  border: none;
+  border-radius: 10px;
+  padding: .7rem 1rem;
+  font-size: .88rem;
+  font-weight: 600;
+  font-family: inherit;
+  cursor: pointer;
+  transition: background .2s ease, transform .15s ease, opacity .2s ease;
+  text-decoration: none;
+}
+
+.btn:active:not(:disabled) {
+  transform: scale(.98);
+}
+
+.btn:disabled {
+  opacity: .55;
+  cursor: not-allowed;
+}
+
+.btn-primary {
+  background: var(--accent);
+  color: #fff;
+  box-shadow: 0 14px 26px rgba(59, 130, 246, 0.22);
+}
+
+.btn-primary:hover:not(:disabled) {
+  background: var(--accent-hover);
+}
+
+.btn-secondary {
+  background: var(--surface);
+  color: var(--text-primary);
+  border: 1px solid var(--border);
+}
+
+.btn-secondary:hover:not(:disabled) {
+  background: var(--surface-hover);
+}
+
+.btn-danger {
+  background: var(--danger);
+  color: #fff;
+}
+
+.btn-danger:hover:not(:disabled) {
+  background: var(--danger-hover);
+}
+
+.message {
+  margin-top: 1rem;
+  padding: .8rem .95rem;
+  border-radius: 12px;
+  display: none;
+  font-size: .9rem;
+  line-height: 1.45;
+}
+
+.message.error {
+  display: block;
+  background: rgba(239, 68, 68, 0.16);
+  color: #fecaca;
+}
+
+.message.success {
+  display: block;
+  background: rgba(16, 185, 129, 0.16);
+  color: #a7f3d0;
+}
+
+.users-card {
+  padding: 1.25rem;
+}
+
+.users-toolbar {
+  display: flex;
+  align-items: center;
+  justify-content: space-between;
+  gap: .75rem;
+  flex-wrap: wrap;
+  margin-bottom: 1rem;
+}
+
+.users-actions {
+  display: flex;
+  align-items: center;
+  gap: .5rem;
+  flex-wrap: wrap;
+}
+
+.table-wrap {
+  border: 1px solid var(--border-light);
+  border-radius: 14px;
+  overflow: hidden;
+}
+
+table {
+  width: 100%;
+  border-collapse: collapse;
+}
+
+thead {
+  background: rgba(255, 255, 255, 0.04);
+}
+
+th, td {
+  text-align: left;
+  padding: .9rem .85rem;
+  border-bottom: 1px solid var(--border-light);
+  font-size: .9rem;
+}
+
+th {
+  color: var(--text-secondary);
+  font-weight: 600;
+}
+
+tbody tr:hover {
+  background: rgba(255, 255, 255, 0.04);
+}
+
+tbody tr:last-child td {
+  border-bottom: none;
+}
+
+.checkbox-cell {
+  width: 52px;
+}
+
+.empty {
+  color: var(--text-tertiary);
+  text-align: center;
+  padding: 2.5rem 1rem;
+}
+
+.status-line {
+  color: var(--text-secondary);
+  font-size: .88rem;
+  margin-top: .75rem;
+}
+
+@media (max-width: 720px) {
+  .top-grid {
+    grid-template-columns: 1fr;
+  }
+
+  .header, .users-toolbar {
+    flex-direction: column;
+    align-items: flex-start;
+  }
+
+  .brand-group {
+    width: 100%;
+  }
+
+  .login-actions {
+    grid-template-columns: 1fr;
+  }
+}
+</style>
+</head>
+<body>
+<div class="container">
+  <section class="panel login-panel" id="loginPanel">
+    <div class="header">
+      <div class="brand-group">
+        <a class="brand-home" href="index.html" id="homeLinkLogin" aria-label="Home" title="Home">
+          <svg viewBox="0 0 24 24" xmlns="http://www.w3.org/2000/svg" aria-hidden="true"><path d="M16 1H4a2 2 0 0 0-2 2v14h2V3h12V1zm3 4H8a2 2 0 0 0-2 2v14a2 2 0 0 0 2 2h11a2 2 0 0 0 2-2V7a2 2 0 0 0-2-2zm0 16H8V7h11v14z"/></svg>
+        </a>
+        <div class="title-wrap">
+          <div class="eyebrow" id="loginEyebrow"></div>
+          <h1 id="loginTitle"></h1>
+        </div>
+      </div>
+      <button class="btn btn-secondary" id="langSwitch"></button>
+    </div>
+    <div class="form-row">
+      <label for="adminPassword" id="passwordLabel"></label>
+      <input id="adminPassword" type="password" autocomplete="current-password">
+    </div>
+    <div class="login-actions">
+      <button class="btn btn-primary" id="loginBtn"></button>
+      <a class="btn btn-secondary" href="index.html" id="backLink"></a>
+    </div>
+    <div class="message" id="loginMessage"></div>
+  </section>
+
+  <section class="dashboard" id="dashboard">
+    <div class="header">
+      <div class="brand-group">
+        <a class="brand-home" href="index.html" id="homeLinkDash" aria-label="Home" title="Home">
+          <svg viewBox="0 0 24 24" xmlns="http://www.w3.org/2000/svg" aria-hidden="true"><path d="M16 1H4a2 2 0 0 0-2 2v14h2V3h12V1zm3 4H8a2 2 0 0 0-2 2v14a2 2 0 0 0 2 2h11a2 2 0 0 0 2-2V7a2 2 0 0 0-2-2zm0 16H8V7h11v14z"/></svg>
+        </a>
+        <div class="title-wrap">
+          <h1 id="dashTitle"></h1>
+          <p class="subtitle" id="dashSubtitle"></p>
+        </div>
+      </div>
+      <div class="toolbar">
+        <button class="btn btn-secondary" id="refreshAllBtn"></button>
+        <button class="btn btn-secondary" id="logoutBtn"></button>
+      </div>
+    </div>
+
+    <div class="top-grid">
+      <section class="panel card">
+        <h2 id="settingsTitle"></h2>
+        <p class="muted" id="settingsIntro"></p>
+        <div class="toggle-row">
+          <div class="toggle-copy">
+            <div class="toggle-title" id="toggleTitle"></div>
+            <div class="toggle-desc" id="toggleDesc"></div>
+          </div>
+          <label class="switch">
+            <input type="checkbox" id="registrationToggle">
+            <span class="slider"></span>
+          </label>
+        </div>
+        <div class="toolbar" style="margin-top:1rem;">
+          <button class="btn btn-primary" id="saveSettingsBtn"></button>
+        </div>
+        <div class="status-line" id="settingsStatus"></div>
+      </section>
+
+      <section class="panel card">
+        <h2 id="summaryTitle"></h2>
+        <p class="muted" id="summaryIntro"></p>
+        <div class="metrics" id="userCount">0</div>
+        <div class="status-line" id="selectionSummary"></div>
+      </section>
+    </div>
+
+    <section class="panel users-card">
+      <div class="users-toolbar">
+        <div>
+          <h2 id="usersTitle"></h2>
+          <p class="muted" id="usersHint"></p>
+        </div>
+        <div class="users-actions">
+          <button class="btn btn-secondary" id="selectAllBtn"></button>
+          <button class="btn btn-secondary" id="clearSelectionBtn"></button>
+          <button class="btn btn-danger" id="deleteSelectedBtn"></button>
+        </div>
+      </div>
+      <div class="table-wrap">
+        <table>
+          <thead>
+            <tr>
+              <th class="checkbox-cell"><input type="checkbox" id="masterCheckbox" aria-label="Select all"></th>
+              <th id="usernameHeader"></th>
+              <th id="userIdHeader"></th>
+            </tr>
+          </thead>
+          <tbody id="usersBody"></tbody>
+        </table>
+      </div>
+      <div class="message" id="dashMessage" style="margin-top:1rem;"></div>
+    </section>
+  </section>
+</div>
+
+<script>
+(function() {
+  var i18n = {
+    zh: {
+      pageTitle: 'Clipboard Sync Admin',
+      loginEyebrow: 'Admin Access',
+      loginTitle: '管理员模块',
+      passwordLabel: '管理员密码',
+      loginBtn: '登录',
+      backLink: '返回登录页',
+      homeLinkTitle: '返回主页',
+      dashTitle: '管理员控制台',
+      dashSubtitle: '可查看全部用户、批量删除用户、配置是否允许注册。',
+      refreshAllBtn: '刷新',
+      logoutBtn: '退出',
+      settingsTitle: '注册设置',
+      settingsIntro: '控制站点是否允许新用户注册。',
+      toggleTitle: '允许新用户注册',
+      toggleDesc: '关闭后，普通登录页仍可登录，但注册按钮会禁用，后端也会拒绝注册请求。',
+      saveSettingsBtn: '保存设置',
+      summaryTitle: '用户概览',
+      summaryIntro: '这里只显示用户账号信息，不返回任何剪贴板列表。',
+      usersTitle: '全部用户',
+      usersHint: '支持多选后批量删除；删除时会一并清理该用户自己的剪贴数据，但不会在此页面展示那些内容。',
+      selectAllBtn: '全选',
+      clearSelectionBtn: '清空选择',
+      deleteSelectedBtn: '批量删除',
+      usernameHeader: '用户名',
+      userIdHeader: '用户 ID',
+      settingsSaved: '设置已保存',
+      loginFailed: '管理员登录失败',
+      loadFailed: '加载失败',
+      deleteFailed: '删除失败',
+      noUsers: '当前没有用户',
+      selectedSummary: '已选 {count} 个用户',
+      settingsOpen: '当前状态：允许注册',
+      settingsClosed: '当前状态：禁止注册',
+      deleteConfirm: '确认删除选中的 {count} 个用户吗？此操作会删除这些用户及其剪贴数据。',
+      deleteDone: '已删除 {count} 个用户',
+      deleteNeedSelection: '请先选择至少一个用户'
+    },
+    en: {
+      pageTitle: 'Clipboard Sync Admin',
+      loginEyebrow: 'Admin Access',
+      loginTitle: 'Admin Module',
+      passwordLabel: 'Admin password',
+      loginBtn: 'Login',
+      backLink: 'Back to sign in',
+      homeLinkTitle: 'Back to home',
+      dashTitle: 'Admin Console',
+      dashSubtitle: 'View all users, batch delete users, and control whether registration is allowed.',
+      refreshAllBtn: 'Refresh',
+      logoutBtn: 'Logout',
+      settingsTitle: 'Registration',
+      settingsIntro: 'Control whether new users are allowed to register.',
+      toggleTitle: 'Allow new registrations',
+      toggleDesc: 'When disabled, the public sign-in page still allows login, but registration is disabled both in UI and API.',
+      saveSettingsBtn: 'Save settings',
+      summaryTitle: 'Overview',
+      summaryIntro: 'This page only shows user account information and never returns clipboard lists.',
+      usersTitle: 'All users',
+      usersHint: 'You can multi-select users and delete them in batch. Their own clipboard data is cleaned up as part of deletion, but is never shown here.',
+      selectAllBtn: 'Select all',
+      clearSelectionBtn: 'Clear selection',
+      deleteSelectedBtn: 'Delete selected',
+      usernameHeader: 'Username',
+      userIdHeader: 'User ID',
+      settingsSaved: 'Settings saved',
+      loginFailed: 'Admin login failed',
+      loadFailed: 'Load failed',
+      deleteFailed: 'Delete failed',
+      noUsers: 'No users yet',
+      selectedSummary: '{count} users selected',
+      settingsOpen: 'Current status: registration enabled',
+      settingsClosed: 'Current status: registration disabled',
+      deleteConfirm: 'Delete the selected {count} users? This will also remove their clipboard data.',
+      deleteDone: '{count} users deleted',
+      deleteNeedSelection: 'Select at least one user first'
+    }
+  };
+
+  var lang = localStorage.getItem('lang') || (/^zh/i.test(navigator.language) ? 'zh' : 'en');
+  var t = i18n[lang];
+  var adminToken = sessionStorage.getItem('adminToken') || '';
+  var users = [];
+  var selected = {};
+
+  var loginPanel = document.getElementById('loginPanel');
+  var dashboard = document.getElementById('dashboard');
+  var loginMessage = document.getElementById('loginMessage');
+  var dashMessage = document.getElementById('dashMessage');
+  var adminPassword = document.getElementById('adminPassword');
+  var masterCheckbox = document.getElementById('masterCheckbox');
+  var usersBody = document.getElementById('usersBody');
+  var userCount = document.getElementById('userCount');
+  var selectionSummary = document.getElementById('selectionSummary');
+  var registrationToggle = document.getElementById('registrationToggle');
+  var settingsStatus = document.getElementById('settingsStatus');
+  var langSwitch = document.getElementById('langSwitch');
+
+  function txt(id, value) {
+    document.getElementById(id).textContent = value;
+  }
+
+  function format(str, vars) {
+    return str.replace(/\{(\w+)\}/g, function(_, key) {
+      return vars[key];
+    });
+  }
+
+  function setMessage(el, type, text) {
+    el.className = 'message ' + type;
+    el.textContent = text;
+  }
+
+  function clearMessage(el) {
+    el.className = 'message';
+    el.textContent = '';
+  }
+
+  function applyLang() {
+    t = i18n[lang];
+    document.documentElement.lang = lang === 'zh' ? 'zh-CN' : 'en';
+    document.title = t.pageTitle;
+    langSwitch.textContent = lang === 'zh' ? 'EN' : '中文';
+    document.getElementById('homeLinkLogin').setAttribute('title', t.homeLinkTitle);
+    document.getElementById('homeLinkLogin').setAttribute('aria-label', t.homeLinkTitle);
+    document.getElementById('homeLinkDash').setAttribute('title', t.homeLinkTitle);
+    document.getElementById('homeLinkDash').setAttribute('aria-label', t.homeLinkTitle);
+
+    txt('loginTitle', t.loginTitle);
+    txt('passwordLabel', t.passwordLabel);
+    txt('loginBtn', t.loginBtn);
+    txt('backLink', t.backLink);
+    txt('dashTitle', t.dashTitle);
+    txt('dashSubtitle', t.dashSubtitle);
+    txt('refreshAllBtn', t.refreshAllBtn);
+    txt('logoutBtn', t.logoutBtn);
+    txt('settingsTitle', t.settingsTitle);
+    txt('settingsIntro', t.settingsIntro);
+    txt('toggleTitle', t.toggleTitle);
+    txt('toggleDesc', t.toggleDesc);
+    txt('saveSettingsBtn', t.saveSettingsBtn);
+    txt('summaryTitle', t.summaryTitle);
+    txt('summaryIntro', t.summaryIntro);
+    txt('usersTitle', t.usersTitle);
+    txt('usersHint', t.usersHint);
+    txt('selectAllBtn', t.selectAllBtn);
+    txt('clearSelectionBtn', t.clearSelectionBtn);
+    txt('deleteSelectedBtn', t.deleteSelectedBtn);
+    txt('usernameHeader', t.usernameHeader);
+    txt('userIdHeader', t.userIdHeader);
+    renderUsers();
+    renderSelectionSummary();
+    renderSettingsStatus();
+  }
+
+  function setAuthState(isLoggedIn) {
+    loginPanel.style.display = isLoggedIn ? 'none' : 'block';
+    dashboard.classList.toggle('is-ready', isLoggedIn);
+    document.body.classList.toggle('login-mode', !isLoggedIn);
+  }
+
+  function api(method, path, body) {
+    var opts = {
+      method: method,
+      headers: {
+        'Content-Type': 'application/json',
+        'Authorization': 'Bearer ' + adminToken
+      }
+    };
+    if (body) opts.body = JSON.stringify(body);
+
+    return fetch(path, opts).then(function(r) {
+      return r.json().then(function(d) {
+        if (r.status === 401 || r.status === 403) {
+          sessionStorage.removeItem('adminToken');
+          adminToken = '';
+          setAuthState(false);
+        }
+        if (!r.ok) throw new Error(d.error || t.loadFailed);
+        return d;
+      });
+    });
+  }
+
+  function renderSettingsStatus() {
+    settingsStatus.textContent = registrationToggle.checked ? t.settingsOpen : t.settingsClosed;
+  }
+
+  function selectedUsernames() {
+    return users.filter(function(user) {
+      return !!selected[user.username];
+    }).map(function(user) {
+      return user.username;
+    });
+  }
+
+  function renderSelectionSummary() {
+    selectionSummary.textContent = format(t.selectedSummary, { count: selectedUsernames().length });
+  }
+
+  function renderUsers() {
+    userCount.textContent = String(users.length);
+
+    if (!users.length) {
+      usersBody.innerHTML = '<tr><td colspan="3" class="empty">' + t.noUsers + '</td></tr>';
+      masterCheckbox.checked = false;
+      renderSelectionSummary();
+      return;
+    }
+
+    usersBody.innerHTML = '';
+    users.forEach(function(user) {
+      var tr = document.createElement('tr');
+      tr.innerHTML =
+        '<td class="checkbox-cell"><input type="checkbox" data-username="' + user.username + '"' +
+          (selected[user.username] ? ' checked' : '') + '></td>' +
+        '<td></td>' +
+        '<td></td>';
+      tr.children[1].textContent = user.username;
+      tr.children[2].textContent = user.id;
+      usersBody.appendChild(tr);
+    });
+
+    masterCheckbox.checked = users.length > 0 && selectedUsernames().length === users.length;
+    renderSelectionSummary();
+  }
+
+  function loadUsers() {
+    return api('GET', '/api/admin/users').then(function(data) {
+      users = Array.isArray(data.users) ? data.users : [];
+      selected = {};
+      renderUsers();
+    });
+  }
+
+  function loadSettings() {
+    return api('GET', '/api/admin/settings').then(function(data) {
+      registrationToggle.checked = data.allowRegistration !== false;
+      renderSettingsStatus();
+    });
+  }
+
+  function refreshAll() {
+    clearMessage(dashMessage);
+    Promise.all([loadSettings(), loadUsers()]).catch(function(err) {
+      setMessage(dashMessage, 'error', err.message || t.loadFailed);
+    });
+  }
+
+  function loginAdmin() {
+    clearMessage(loginMessage);
+    fetch('/api/admin/login', {
+      method: 'POST',
+      headers: { 'Content-Type': 'application/json' },
+      body: JSON.stringify({ password: adminPassword.value })
+    })
+      .then(function(r) { return r.json().then(function(d) { return { ok: r.ok, data: d }; }); })
+      .then(function(res) {
+        if (!res.ok) throw new Error(res.data.error || t.loginFailed);
+        adminToken = res.data.token;
+        sessionStorage.setItem('adminToken', adminToken);
+        adminPassword.value = '';
+        setAuthState(true);
+        refreshAll();
+      })
+      .catch(function(err) {
+        setMessage(loginMessage, 'error', err.message || t.loginFailed);
+      });
+  }
+
+  function saveSettings() {
+    clearMessage(dashMessage);
+    api('PUT', '/api/admin/settings', {
+      allowRegistration: registrationToggle.checked
+    })
+      .then(function() {
+        renderSettingsStatus();
+        setMessage(dashMessage, 'success', t.settingsSaved);
+      })
+      .catch(function(err) {
+        setMessage(dashMessage, 'error', err.message || t.loadFailed);
+      });
+  }
+
+  function deleteSelectedUsers() {
+    var usernames = selectedUsernames();
+    if (!usernames.length) {
+      setMessage(dashMessage, 'error', t.deleteNeedSelection);
+      return;
+    }
+
+    if (!window.confirm(format(t.deleteConfirm, { count: usernames.length }))) {
+      return;
+    }
+
+    clearMessage(dashMessage);
+    api('DELETE', '/api/admin/users', { usernames: usernames })
+      .then(function(data) {
+        setMessage(dashMessage, 'success', format(t.deleteDone, { count: data.deleted.length }));
+        return loadUsers();
+      })
+      .catch(function(err) {
+        setMessage(dashMessage, 'error', err.message || t.deleteFailed);
+      });
+  }
+
+  document.getElementById('loginBtn').addEventListener('click', loginAdmin);
+  adminPassword.addEventListener('keydown', function(e) {
+    if (e.key === 'Enter') loginAdmin();
+  });
+
+  document.getElementById('refreshAllBtn').addEventListener('click', refreshAll);
+  document.getElementById('logoutBtn').addEventListener('click', function() {
+    sessionStorage.removeItem('adminToken');
+    adminToken = '';
+    selected = {};
+    setAuthState(false);
+    clearMessage(dashMessage);
+  });
+  document.getElementById('saveSettingsBtn').addEventListener('click', saveSettings);
+  document.getElementById('selectAllBtn').addEventListener('click', function() {
+    users.forEach(function(user) { selected[user.username] = true; });
+    renderUsers();
+  });
+  document.getElementById('clearSelectionBtn').addEventListener('click', function() {
+    selected = {};
+    renderUsers();
+  });
+  document.getElementById('deleteSelectedBtn').addEventListener('click', deleteSelectedUsers);
+
+  masterCheckbox.addEventListener('change', function() {
+    if (masterCheckbox.checked) {
+      users.forEach(function(user) { selected[user.username] = true; });
+    } else {
+      selected = {};
+    }
+    renderUsers();
+  });
+
+  usersBody.addEventListener('change', function(e) {
+    var input = e.target.closest('input[data-username]');
+    if (!input) return;
+    selected[input.getAttribute('data-username')] = input.checked;
+    if (!input.checked) delete selected[input.getAttribute('data-username')];
+    renderSelectionSummary();
+    masterCheckbox.checked = users.length > 0 && selectedUsernames().length === users.length;
+  });
+
+  registrationToggle.addEventListener('change', renderSettingsStatus);
+  langSwitch.addEventListener('click', function() {
+    lang = lang === 'zh' ? 'en' : 'zh';
+    localStorage.setItem('lang', lang);
+    applyLang();
+  });
+
+  applyLang();
+  setAuthState(!!adminToken);
+  if (adminToken) {
+    refreshAll();
+  }
+})();
+</script>
+</body>
+</html>

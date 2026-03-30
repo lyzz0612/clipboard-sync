@@ -63,7 +63,7 @@ export async function verifyPassword(
 }
 
 export async function signJwt(
-  payload: { sub: string; username: string },
+  payload: { sub: string; username: string; role?: 'user' | 'admin' },
   secret: string,
   expiresInSeconds = 7 * 24 * 60 * 60,
 ): Promise<string> {

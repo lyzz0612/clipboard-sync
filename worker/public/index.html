@@ -201,6 +201,29 @@ button:disabled { opacity: .5; cursor: not-allowed; }
 .msg.error { background: var(--error-bg); color: var(--error-text); }
 .msg.info  { background: var(--info-bg);  color: var(--info-text); }
 
+.helper-row {
+  margin-top: 1rem;
+  display: flex;
+  align-items: center;
+  justify-content: space-between;
+  gap: .75rem;
+  font-size: .8rem;
+}
+
+.helper-link {
+  color: var(--accent);
+  text-decoration: none;
+}
+
+.helper-link:hover {
+  color: var(--accent-hover);
+}
+
+.helper-text {
+  color: var(--text-secondary);
+  text-align: right;
+}
+
 .lang-switch {
   position: absolute;
   top: 1.25rem;
@@ -244,6 +267,10 @@ button:disabled { opacity: .5; cursor: not-allowed; }
   </form>
   <div class="msg error" id="error"></div>
   <div class="msg info" id="info"></div>
+  <div class="helper-row">
+    <a class="helper-link" href="admin.html" data-i18n="adminEntry"></a>
+    <div class="helper-text" id="registerStatus"></div>
+  </div>
 </div>
 <script>
 (function() {
@@ -259,8 +286,12 @@ button:disabled { opacity: .5; cursor: not-allowed; }
       emptyFields: '请输入用户名和密码',
       loginFailed: '登录失败',
       regFailed: '注册失败',
+      requestFailed: '请求失败',
+      registrationClosed: '当前已禁止注册',
+      registrationClosedHint: '当前站点已关闭新用户注册',
       registering: '正在注册…',
       regSuccess: '注册成功！正在登录…',
+      adminEntry: '管理员入口',
       pageTitle: '剪贴板同步'
     },
     en: {
@@ -274,8 +305,12 @@ button:disabled { opacity: .5; cursor: not-allowed; }
       emptyFields: 'Please enter username and password',
       loginFailed: 'Login failed',
       regFailed: 'Registration failed',
+      requestFailed: 'Request failed',
+      registrationClosed: 'Registration is disabled',
+      registrationClosedHint: 'New user registration is currently disabled',
       registering: 'Registering…',
       regSuccess: 'Registered! Logging in…',
+      adminEntry: 'Admin',
       pageTitle: 'Clipboard Sync'
     }
   };
@@ -311,8 +346,19 @@ button:disabled { opacity: .5; cursor: not-allowed; }
   var passwordInput = document.getElementById('password');
   var loginBtn = document.getElementById('loginBtn');
   var registerBtn = document.getElementById('registerBtn');
+  var registerStatusEl = document.getElementById('registerStatus');
+  var registrationEnabled = true;
 
   applyLang();
+
+  function updateRegisterState(isLoading) {
+    registerBtn.disabled = !!isLoading || !registrationEnabled;
+  }
+
+  function renderRegisterStatus() {
+    registerStatusEl.textContent = registrationEnabled ? '' : t.registrationClosedHint;
+    updateRegisterState(false);
+  }
 
   function showError(msg) {
     infoEl.style.display = 'none';
@@ -326,7 +372,7 @@ button:disabled { opacity: .5; cursor: not-allowed; }
   }
   function setLoading(v) {
     loginBtn.disabled = v;
-    registerBtn.disabled = v;
+    updateRegisterState(v);
   }
 
   if (sessionStorage.getItem('token')) {
@@ -352,8 +398,23 @@ button:disabled { opacity: .5; cursor: not-allowed; }
     var u = usernameInput.value.trim();
     var p = passwordInput.value.trim();
     if (!u || !p) { showError(t.emptyFields); return; }
+    if (!registrationEnabled) { showError(t.registrationClosed); return; }
     doRegister(u, p);
   });
+
+  function loadRegisterStatus() {
+    fetch('/api/register-status')
+      .then(function(r) { return r.json().then(function(d) { return { ok: r.ok, data: d }; }); })
+      .then(function(res) {
+        if (!res.ok) throw new Error(res.data.error || t.requestFailed);
+        registrationEnabled = res.data.enabled !== false;
+        renderRegisterStatus();
+      })
+      .catch(function() {
+        registrationEnabled = true;
+        renderRegisterStatus();
+      });
+  }
 
   function doLogin(username, password) {
     setLoading(true);
@@ -389,6 +450,8 @@ button:disabled { opacity: .5; cursor: not-allowed; }
     })
     .catch(function(e) { showError(e.message); setLoading(false); });
   }
+
+  loadRegisterStatus();
 })();
 </script>
 </body>

@@ -54,4 +54,8 @@ VERSION_NAME=1.0.0 ./gradlew assembleRelease
 
 ## 当前状态
 
-Android 工程已可通过 GitHub Actions 在版本 tag 创建时自动构建 signed release APK / AAB，并同步生成 `CHANGELOG.md`。
+Android 工程已可通过 GitHub Actions 在版本 tag 创建时自动构建 signed release APK / AAB，并创建对应 GitHub Release。
+
+手动触发 Android 发布工作流时，只会生成构建产物并上传到 Actions Artifacts，不会创建 GitHub Release，也不会写入 `CHANGELOG.md`。
+
+`CHANGELOG.md` 现由独立的工作流在推送 `v*` 标签时生成并更新。
