@@ -1,6 +1,71 @@
 # Changelog
 
 本文件由 GitHub Actions 在发布 Android 版本标签时自动生成和更新。
+## v1.0.2 - 2026-03-31
+
+### Documentation
+
+- docs(changelog): update for v1.0.1
+
+- docs: update README with demo credentials for example site
+
+- docs: update README to remove demo video and add splash image
+
+- Removed the demo video from the README to streamline content.
+- Added a splash image link for a visual representation of the project.
+
+
+### Features
+
+- feat: enhance Android build workflow with build mode selection
+
+- Added `build_mode` input to the GitHub Actions workflow for manual triggers, allowing users to choose between `release` and `debug` builds.
+- Updated APK output naming and paths based on the selected build mode.
+- Enhanced README documentation to clarify the new build mode options and their effects on APK generation.
+- Integrated file logging capabilities in debug mode for improved troubleshooting.
+
+- feat: migrate from KV to D1 database for clipboard synchronization
+
+- Updated the application to use D1 database instead of KV for storing user clips and settings.
+- Modified deployment workflows to include D1 migrations and adjusted environment variable requirements.
+- Enhanced local development documentation to reflect changes in database setup and usage.
+- Refactored code to accommodate new database interactions, including user authentication and clip management.
+- Updated README files to clarify the new D1 storage implementation and its implications for users.
+
+- feat: enhance clipboard synchronization and update documentation
+
+- Added a demo video to the README for better user guidance.
+- Refactored ClipboardAccessibilityService to improve synchronization handling with a new atomic boolean for IME sync state.
+- Updated ClipboardSyncWorker to utilize batch clip data for clipboard operations, enhancing performance and reliability.
+- Removed outdated worker-related images from the documentation.
+
+
+### Fixes
+
+- fix: update Android build workflow to output APK instead of ZIP
+
+- Changed the artifact naming from ZIP to APK in the build-android workflow.
+- Updated the publish-release workflow to reflect the change in artifact type from ZIP to APK.
+- Revised README to clarify the new artifact handling in the release process.
+
+
+### Others
+
+- Change demo image link to clickable format
+
+Updated demo image link in README.md to use a clickable format.
+
+
+### Refactors
+
+- refactor: rename and update Android build workflow for clarity
+
+- Renamed the workflow from `Release Android` to `Build Android` to better reflect its purpose.
+- Updated documentation to clarify the workflow's role in building APKs instead of ZIP files.
+- Enhanced README files to provide clearer instructions on the build process and artifact handling.
+- Adjusted artifact naming conventions to align with the new workflow structure.
+
+
 ## v1.0.1 - 2026-03-30
 
 ### Documentation
