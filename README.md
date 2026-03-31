@@ -1,8 +1,6 @@
 # Clipboard Sync
 
-使用演示（若无法在页面内播放，可打开仓库内 [`docs/demo.mp4`](docs/demo.mp4)）：
-
-<video src="https://raw.githubusercontent.com/lyzz0612/clipboard-sync/master/docs/demo.mp4" controls playsinline width="100%"></video>
+![查看演示](https://raw.githubusercontent.com/lyzz0612/clipboard-sync/master/docs/splash.jpg)
 
 一个偏个人化、可自部署的跨端剪贴板方案：手机端负责同步，电脑端直接打开网页即可使用，不需要额外安装桌面软件。
 
@@ -286,7 +284,7 @@ Android 端登录完成后，建议优先完成权限设置，否则只能手动
 
 除此之外，它在交互上也不一定更合理。
 
-例如：你刚把一段内容同步到云端，但还没真正开始输入，过了一会儿又后悔了，于是在手机里把这条新增剪贴板删掉了。  
+例如：你刚把一段内容同步到云端，但还没真正开始输入，过了一会儿又后悔了，于是在手机里把这条新增剪贴板删掉了。
 如果系统之前已经靠后台轮询或常驻监听，过早把那条内容写回了本地系统剪贴板，那么本地状态反而会比你“当前真正想保留的内容”更旧、更脏。
 
 这也是为什么本项目更倾向于在“你准备输入 / 粘贴”的那个时刻再触发同步，而不是默认全时抢跑。
