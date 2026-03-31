@@ -2,7 +2,6 @@ package com.clipboardsync.app.service
 
 import android.accessibilityservice.AccessibilityService
 import android.accessibilityservice.AccessibilityServiceInfo
-import android.content.ClipData
 import android.content.ClipboardManager
 import android.content.Context
 import android.os.Handler
@@ -10,22 +9,29 @@ import android.os.Looper
 import android.view.accessibility.AccessibilityEvent
 import com.clipboardsync.app.data.local.PrefsManager
 import com.clipboardsync.app.data.repository.ClipboardRepository
+import com.clipboardsync.app.util.ClipboardBatchWriter
 import com.clipboardsync.app.util.FileLogger
 import kotlinx.coroutines.CoroutineScope
 import kotlinx.coroutines.Dispatchers
 import kotlinx.coroutines.SupervisorJob
 import kotlinx.coroutines.cancel
 import kotlinx.coroutines.launch
+import java.util.concurrent.atomic.AtomicBoolean
 
 class ClipboardAccessibilityService : AccessibilityService() {
 
     private val scope = CoroutineScope(Dispatchers.IO + SupervisorJob())
     private val handler = Handler(Looper.getMainLooper())
-    private var pendingSync: Runnable? = null
+
+    /** true = 已 post 待执行，或协程拉取/写剪贴板尚未结束；此期间忽略重复 IME，不取消重排 */
+    private val imeSyncBusy = AtomicBoolean(false)
+
+    private val syncRunnable = Runnable { triggerSync() }
 
     companion object {
         private const val TAG = "ClipSyncA11y"
-        private const val DEBOUNCE_MS = 2000L
+        /** 0 = 下一帧立即执行；>0 为额外短延迟（毫秒） */
+        private const val POST_DELAY_MS = 0L
     }
 
     override fun onServiceConnected() {
@@ -39,7 +45,7 @@ class ClipboardAccessibilityService : AccessibilityService() {
         FileLogger.i(
             TAG,
             "onServiceConnected eventTypes=TYPE_WINDOW_STATE_CHANGED " +
-                "notificationTimeout=500ms debounce=${DEBOUNCE_MS}ms"
+                "notificationTimeout=500ms postDelayMs=$POST_DELAY_MS"
         )
     }
 
@@ -74,19 +80,21 @@ class ClipboardAccessibilityService : AccessibilityService() {
 
         if (!isImeRelated) return
 
-        pendingSync?.let {
-            handler.removeCallbacks(it)
-            FileLogger.d(TAG, "debounce: removed previous pending sync")
+        if (!imeSyncBusy.compareAndSet(false, true)) {
+            FileLogger.d(TAG, "debounce: skip (sync already queued or running)")
+            return
         }
-        val syncRunnable = Runnable { triggerSync() }
-        pendingSync = syncRunnable
-        handler.postDelayed(syncRunnable, DEBOUNCE_MS)
-        FileLogger.i(TAG, "ime_match: scheduled triggerSync in ${DEBOUNCE_MS}ms")
+        if (POST_DELAY_MS <= 0L) {
+            handler.post(syncRunnable)
+            FileLogger.i(TAG, "ime_match: posted triggerSync (immediate)")
+        } else {
+            handler.postDelayed(syncRunnable, POST_DELAY_MS)
+            FileLogger.i(TAG, "ime_match: scheduled triggerSync in ${POST_DELAY_MS}ms")
+        }
     }
 
     private fun triggerSync() {
         FileLogger.i(TAG, "triggerSync: enter")
-        pendingSync = null
         scope.launch {
             try {
                 val prefs = PrefsManager.getInstance(applicationContext)
@@ -110,22 +118,19 @@ class ClipboardAccessibilityService : AccessibilityService() {
                         FileLogger.d(TAG, "triggerSync: no new clips, skip clipboard")
                         return@onSuccess
                     }
-                    val latest = clips.maxByOrNull { it.createdAt } ?: run {
-                        FileLogger.w(TAG, "triggerSync: maxBy createdAt null")
+                    val clipData = ClipboardBatchWriter.buildClipData(clips) ?: run {
+                        FileLogger.w(TAG, "triggerSync: buildClipData null")
                         return@onSuccess
                     }
                     FileLogger.i(
                         TAG,
-                        "triggerSync: writing clip id=${latest.id} createdAt=${latest.createdAt} " +
-                            "textLen=${latest.text.length} preview=${FileLogger.preview(latest.text, 160)}"
+                        "triggerSync: writing batch items=${clipData.itemCount} fromDelta=${clips.size}"
                     )
                     handler.post {
                         runCatching {
                             val clipboard =
                                 getSystemService(Context.CLIPBOARD_SERVICE) as ClipboardManager
-                            clipboard.setPrimaryClip(
-                                ClipData.newPlainText("clipboard_sync", latest.text)
-                            )
+                            clipboard.setPrimaryClip(clipData)
                             FileLogger.i(TAG, "triggerSync: setPrimaryClip on main ok")
                         }.onFailure { e ->
                             FileLogger.e(TAG, "triggerSync: setPrimaryClip failed", e)
@@ -136,19 +141,23 @@ class ClipboardAccessibilityService : AccessibilityService() {
                 }
             } catch (e: Exception) {
                 FileLogger.e(TAG, "triggerSync: exception", e)
+            } finally {
+                imeSyncBusy.set(false)
             }
         }
     }
 
     override fun onInterrupt() {
-        pendingSync?.let { handler.removeCallbacks(it) }
+        handler.removeCallbacks(syncRunnable)
+        imeSyncBusy.set(false)
         FileLogger.w(TAG, "onInterrupt")
     }
 
     override fun onDestroy() {
         super.onDestroy()
         FileLogger.w(TAG, "onDestroy")
+        handler.removeCallbacks(syncRunnable)
+        imeSyncBusy.set(false)
         scope.cancel()
-        pendingSync?.let { handler.removeCallbacks(it) }
     }
 }

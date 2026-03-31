@@ -1,5 +1,9 @@
 # Clipboard Sync
 
+使用演示（若无法在页面内播放，可打开仓库内 [`docs/demo.mp4`](docs/demo.mp4)）：
+
+<video src="https://raw.githubusercontent.com/lyzz0612/clipboard-sync/master/docs/demo.mp4" controls playsinline width="100%"></video>
+
 一个偏个人化、可自部署的跨端剪贴板方案：手机端负责同步，电脑端直接打开网页即可使用，不需要额外安装桌面软件。
 
 它的重点不是“把所有复制内容自动镜像到所有设备”，而是把你真正想跨端带走的内容放进一个可查看、可筛选、可删除的剪贴板列表里。

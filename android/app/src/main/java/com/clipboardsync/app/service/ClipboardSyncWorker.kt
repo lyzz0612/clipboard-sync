@@ -1,12 +1,12 @@
 package com.clipboardsync.app.service
 
-import android.content.ClipData
 import android.content.ClipboardManager
 import android.content.Context
 import androidx.work.CoroutineWorker
 import androidx.work.WorkerParameters
 import com.clipboardsync.app.data.local.PrefsManager
 import com.clipboardsync.app.data.repository.ClipboardRepository
+import com.clipboardsync.app.util.ClipboardBatchWriter
 import com.clipboardsync.app.util.FileLogger
 import kotlinx.coroutines.Dispatchers
 import kotlinx.coroutines.withContext
@@ -35,21 +35,18 @@ class ClipboardSyncWorker(
             onSuccess = { clips ->
                 FileLogger.i("SyncWorker", "getDelta ok count=${clips.size}")
                 if (clips.isNotEmpty()) {
-                    val latest = clips.maxByOrNull { it.createdAt }
-                    if (latest != null) {
+                    val clipData = ClipboardBatchWriter.buildClipData(clips)
+                    if (clipData != null) {
                         FileLogger.i(
                             "SyncWorker",
-                            "clipboard target id=${latest.id} textLen=${latest.text.length} " +
-                                "preview=${FileLogger.preview(latest.text, 120)}"
+                            "clipboard batch items=${clipData.itemCount} fromDelta=${clips.size}"
                         )
                         // 部分真机（尤其 MIUI）要求在主线程写入剪贴板
                         withContext(Dispatchers.Main) {
                             val clipboard =
                                 applicationContext.getSystemService(Context.CLIPBOARD_SERVICE) as ClipboardManager
                             runCatching {
-                                clipboard.setPrimaryClip(
-                                    ClipData.newPlainText("clipboard_sync", latest.text)
-                                )
+                                clipboard.setPrimaryClip(clipData)
                                 FileLogger.i("SyncWorker", "setPrimaryClip ok (worker main)")
                             }.onFailure { e ->
                                 FileLogger.e("SyncWorker", "setPrimaryClip failed", e)
