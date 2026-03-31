@@ -1,6 +1,6 @@
 # Clipboard Sync
-
-[![查看演示](https://raw.githubusercontent.com/lyzz0612/clipboard-sync/refs/heads/master/docs/splash.jpg)](https://imgur.com/0NuZ3XJ)
+## 演示视频（点击图片查看）
+[![点击查看演示](https://raw.githubusercontent.com/lyzz0612/clipboard-sync/refs/heads/master/docs/splash.jpg)](https://imgur.com/0NuZ3XJ)
 
 一个偏个人化、可自部署的跨端剪贴板方案：手机端负责同步，电脑端直接打开网页即可使用，不需要额外安装桌面软件。
 
